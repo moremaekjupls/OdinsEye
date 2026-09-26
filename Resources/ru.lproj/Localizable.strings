@@ -1,0 +1,94 @@
+/* Odin's Eye — русский. Ключи — английский текст, поэтому строка без перевода
+   просто останется английской, а не превратится в идентификатор. */
+
+/* Вкладки */
+"Music" = "Музыка";
+"Shelf" = "Полка";
+"Clipboard" = "Буфер";
+"Snippets" = "Заготовки";
+"Currency" = "Валюта";
+"Settings" = "Настройки";
+
+/* Меню-бар */
+"Open Panel" = "Открыть панель";
+"Quit" = "Выйти";
+
+/* Вкладка настроек */
+"General" = "Общее";
+"Launch at Login" = "Запускать при входе";
+"Show Menu Bar Icon" = "Показывать иконку в меню-баре";
+"Show in Panel" = "Показывать в панели";
+
+"Screenshots" = "Скриншоты";
+"Save Clipboard Screenshots" = "Сохранять скриншоты из буфера";
+"Watch Screenshots Folder" = "Отслеживать папку снимков";
+"Choose Screenshots Folder" = "Выбор папки для снимков";
+"Odin's Eye will watch this folder for new screenshots and add them to the shelf." = "Odin's Eye будет следить за этой папкой и класть новые снимки на полку.";
+"Watch" = "Следить";
+"Show Screenshots Folder" = "Показать папку скриншотов";
+"Clear Screenshots Folder" = "Очистить папку снимков";
+"Clear Screenshots Folder (%@)" = "Очистить папку снимков (%@)";
+"Show Snippets File" = "Показать файл заготовок";
+
+"Configuration" = "Конфигурация";
+"Show Config File" = "Показать файл конфигурации";
+"config.json is broken — click to open; nothing is overwritten" = "config.json не читается — нажми, чтобы открыть; поверх ничего не пишется";
+
+"Odin's Eye" = "Odin's Eye";
+"Quit Odin's Eye" = "Выйти из Odin's Eye";
+
+/* Полка */
+"Selected: %d" = "Выбрано: %d";
+"Deselect" = "Снять выбор";
+"Clear" = "Очистить";
+"Copy" = "Копировать";
+"Open" = "Открыть";
+"Show in Finder" = "Показать в Finder";
+"Remove from Shelf" = "Убрать с полки";
+
+/* Музыка */
+"Nothing is playing" = "Ничего не играет";
+
+/* Заготовки */
+"Add a snippet" = "Добавить заготовку";
+"Name" = "Название";
+"Text" = "Текст";
+"Delete" = "Удалить";
+"Nothing here yet — add with +" = "Пока пусто — добавь через +";
+"snippets.json is broken — click to open; nothing is overwritten" = "snippets.json не читается — нажми, чтобы открыть; поверх ничего не пишется";
+
+/* Валюта */
+"Search currency" = "Поиск валюты";
+"Swap currencies" = "Поменять валюты";
+"No currencies match" = "Ничего не найдено";
+
+/* Сохранённые снимки. Ключ — сам формат даты, чтобы язык мог переставить части
+   в своём порядке. */
+"Screenshot" = "Снимок";
+"yyyy-MM-dd 'at' HH.mm.ss" = "yyyy-MM-dd 'в' HH.mm.ss";
+
+/* Режим приватности: панель закрывает содержимое полем из точек. */
+"Hide Contents" = "Скрывать содержимое";
+"Hidden" = "Скрыто";
+"Show" = "Показать";
+"Hide" = "Скрыть";
+"All" = "Всё";
+
+"Done" = "Готово";
+
+/* Булавка и «Не спать» */
+"Pin" = "Закрепить";
+"Unpin" = "Открепить";
+"Pin Panel" = "Закрепить панель";
+"Unpin Panel (Esc)" = "Открепить панель (Esc)";
+"Keep Awake" = "Не спать";
+"Keep Awake — %@" = "Не спать — %@";
+"Keep Display On" = "Не гасить экран";
+"Indefinitely" = "Бессрочно";
+"1 Hour" = "1 час";
+"2 Hours" = "2 часа";
+"4 Hours" = "4 часа";
+"1 h" = "1 ч";
+"2 h" = "2 ч";
+"4 h" = "4 ч";
+"Turn Off" = "Выключить";

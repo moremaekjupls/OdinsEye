@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Одно право, и оно не даёт приложению ничего сверх того, что оно уже
+         делает: под hardened runtime без них система молча запрещает то, что
+         без hardened runtime разрешала. Само разрешение остаётся за
+         пользователем — TCC спросит его в тот же момент, что и раньше.
+         Доступ к календарю убран вместе с вкладкой.
+
+         Apple-события держат запасной путь управления плеером (AppleScript для
+         Music и Spotify). -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+</dict>
+</plist>

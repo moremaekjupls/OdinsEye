@@ -5,6 +5,7 @@ struct NotchContentView: View {
     /// This screen's share of the panel. Everything the pointer decides is
     /// here; everything shown is in `vm`, the same on every display.
     @ObservedObject var panel: PanelState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isOpen: Bool { panel.isActive }
     private var size: CGSize { panel.bodySize }
@@ -50,7 +51,7 @@ struct NotchContentView: View {
         }
         .frame(width: size.width + 2 * topRadius, height: size.height, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(Theme.openAnimation, value: isOpen)
+        .animation(isOpen ? Theme.openAnimation : Theme.closeAnimation, value: isOpen)
         .animation(Theme.paneAnimation, value: vm.tab)
     }
 
@@ -65,10 +66,11 @@ struct NotchContentView: View {
     private var header: some View {
         HStack(spacing: 0) {
             if isOpen {
-                Text(vm.tab.title.uppercased())
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.tertiary)
+                // Sentence case, like a window title — the one label in the
+                // panel that says where you are.
+                Text(vm.tab.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.secondary)
                     .padding(.leading, 16)
                     .id(vm.tab)
                     .transition(.opacity)
@@ -94,7 +96,7 @@ struct NotchContentView: View {
                     EqualizerBars(isAnimating: vm.media.isPlaying)
                 }
                 Text(vm.media.sourceName ?? "")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.panelCaptionMedium)
                     .foregroundStyle(Theme.tertiary)
             }
         case .shelf:
@@ -114,8 +116,9 @@ struct NotchContentView: View {
     private func counter(_ value: Int) -> some View {
         if value > 0 {
             Text("\(value)")
-                .font(.system(size: 10, weight: .medium).monospacedDigit())
+                .font(.panelCaptionMedium.monospacedDigit())
                 .foregroundStyle(Theme.tertiary)
+                .contentTransition(.numericText())
         }
     }
 
@@ -140,17 +143,25 @@ struct NotchContentView: View {
         ZStack {
             pane
                 .id(vm.tab)
-                .transition(.asymmetric(
-                    insertion: .opacity
-                        .combined(with: .scale(scale: 0.97))
-                        .animation(Theme.paneIn),
-                    removal: .opacity
-                        .combined(with: .scale(scale: 1.02))
-                        .animation(Theme.paneOut)
-                ))
+                .transition(paneTransition)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+    }
+
+    /// With Reduce Motion on, panes cross-fade and nothing scales.
+    private var paneTransition: AnyTransition {
+        if reduceMotion {
+            return .opacity.animation(Theme.paneIn)
+        }
+        return .asymmetric(
+            insertion: .opacity
+                .combined(with: .scale(scale: 0.98))
+                .animation(Theme.paneIn),
+            removal: .opacity
+                .combined(with: .scale(scale: 1.01))
+                .animation(Theme.paneOut)
+        )
     }
 
     @ViewBuilder
@@ -181,7 +192,7 @@ private struct CurrencyRateDate: View {
     var body: some View {
         if let date = currencies.rateDate {
             Text(date)
-                .font(.system(size: 10, weight: .medium).monospacedDigit())
+                .font(.panelCaptionMedium.monospacedDigit())
                 .foregroundStyle(Theme.tertiary)
         }
     }
@@ -218,15 +229,14 @@ private struct Rail: View {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(fill(for: tab))
                         )
-                        .foregroundStyle(vm.tab == tab ? Color.white : Theme.tertiary)
+                        .foregroundStyle(vm.tab == tab ? Color.white : (hovered == tab ? Theme.secondary : Theme.tertiary))
                         .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        // A render-time transform. Growing the frame instead
-                        // would re-lay out the rail on every hover, and layout
-                        // that runs on pointer movement is exactly the kind
-                        // that shows up as a stutter.
-                        .scaleEffect(hovered == tab ? 1.15 : 1)
                 }
-                .buttonStyle(.plain)
+                // Highlight, not growth: macOS marks the item under the pointer
+                // with its background, and icons that swell on hover read as a
+                // web page.
+                .buttonStyle(.pressable)
+                .help(tab.title)
                 .onHover { inside in
                     if inside {
                         hovered = tab
@@ -262,10 +272,12 @@ private struct PanelControls: View {
     @ObservedObject var vm: NotchViewModel
     @ObservedObject var keepAwake: KeepAwake
     @ObservedObject var panel: PanelState
+    @State private var hovered: String?
 
     var body: some View {
         VStack(spacing: NotchGeometry.railSpacing) {
             control(
+                id: "pin",
                 symbol: vm.isPinned ? "pin.fill" : "pin",
                 isOn: vm.isPinned,
                 help: vm.isPinned ? localized("Unpin Panel (Esc)") : localized("Pin Panel")
@@ -274,6 +286,7 @@ private struct PanelControls: View {
             }
 
             control(
+                id: "cup",
                 symbol: keepAwake.isActive ? "cup.and.saucer.fill" : "cup.and.saucer",
                 isOn: keepAwake.isActive,
                 help: localized("Keep Awake")
@@ -287,7 +300,7 @@ private struct PanelControls: View {
             if keepAwake.isActive {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     Text(verbatim: keepAwake.remainingText(at: context.date) ?? "")
-                        .font(.system(size: 8.5, weight: .medium).monospacedDigit())
+                        .font(.panelMini.monospacedDigit())
                         .foregroundStyle(Theme.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -302,19 +315,25 @@ private struct PanelControls: View {
         .animation(Theme.contentAnimation, value: keepAwake.isActive)
     }
 
-    private func control(symbol: String, isOn: Bool, help: String, action: @escaping () -> Void) -> some View {
+    /// `id` rather than the symbol for hover: the symbol changes on click, and
+    /// the highlight must not drop off the button still under the pointer.
+    private func control(id: String, symbol: String, isOn: Bool, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 12, weight: .medium))
                 .frame(width: 30, height: panel.geometry.railIconHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(isOn ? Theme.surfaceHover : .clear)
+                        .fill(isOn ? Theme.surfaceHover : (hovered == id ? Theme.surface : .clear))
                 )
-                .foregroundStyle(isOn ? Color.white : Theme.tertiary)
+                .foregroundStyle(isOn ? Color.white : (hovered == id ? Theme.secondary : Theme.tertiary))
+                .contentTransition(.symbolEffect(.replace))
                 .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
+        .onHover { inside in
+            if inside { hovered = id } else if hovered == id { hovered = nil }
+        }
         .help(help)
     }
 }

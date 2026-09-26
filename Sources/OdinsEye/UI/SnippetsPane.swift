@@ -37,12 +37,12 @@ struct SnippetsPane: View {
     private var search: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Theme.tertiary)
             TextField("", text: $snippets.query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(.white)
+                .font(.panelBody)
+                .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .focused($focused, equals: .search)
                 .onKeyPress(.escape) {
@@ -50,26 +50,14 @@ struct SnippetsPane: View {
                     return .handled
                 }
             if !snippets.query.isEmpty {
-                Button { snippets.query = "" } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.secondary)
-                }
-                .buttonStyle(.plain)
-                .pointerStyle(.default)
+                RowIconButton(symbol: "xmark.circle.fill", tint: Theme.tertiary) { snippets.query = "" }
             }
             PrivacySwitch(privacy: privacy, section: .snippets)
-            Button { beginAdding() } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.secondary)
-            }
-            .buttonStyle(.plain)
-            .pointerStyle(.default)
-            .help(localized("Add a snippet"))
+            RowIconButton(symbol: "plus", help: localized("Add a snippet")) { beginAdding() }
         }
-        .padding(.horizontal, 9)
-        .frame(height: 24)
+        .padding(.leading, 9)
+        .padding(.trailing, 3)
+        .frame(height: 26)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(Theme.surface)
@@ -87,10 +75,10 @@ struct SnippetsPane: View {
     private var brokenNotice: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Color.yellow.opacity(0.85))
             Text("snippets.json is broken — click to open; nothing is overwritten")
-                .font(.system(size: 10))
+                .font(.panelCaption)
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -112,11 +100,11 @@ struct SnippetsPane: View {
             // which is the worst place for something that only looks like one.
             TextField(localized("Name"), text: $draftLabel)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white)
+                .font(.panelBodyMedium)
+                .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .padding(.horizontal, 7)
-                .frame(width: 104, height: 20)
+                .frame(width: 104, height: 22)
                 .background(
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(Theme.surface)
@@ -126,11 +114,11 @@ struct SnippetsPane: View {
 
             TextField(localized("Text"), text: $draftText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(.white)
+                .font(.panelBody)
+                .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .padding(.horizontal, 7)
-                .frame(height: 20)
+                .frame(height: 22)
                 .background(
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(Theme.surface)
@@ -138,25 +126,12 @@ struct SnippetsPane: View {
                 .focused($focused, equals: .text)
                 .onSubmit { commit() }
 
-            Button { commit() } label: {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(draftText.isEmpty ? Theme.tertiary : Color.green)
-            }
-            .buttonStyle(.plain)
-            .pointerStyle(.default)
-            .disabled(draftText.isEmpty)
+            RowIconButton(symbol: "checkmark", tint: .green, disabled: draftText.isEmpty) { commit() }
 
-            Button { cancelAdding() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Theme.secondary)
-            }
-            .buttonStyle(.plain)
-            .pointerStyle(.default)
+            RowIconButton(symbol: "xmark") { cancelAdding() }
         }
         .padding(.horizontal, 6)
-        .frame(height: 28)
+        .frame(height: 30)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(Theme.surfaceHover)
@@ -216,7 +191,7 @@ struct SnippetsPane: View {
                     .foregroundStyle(Theme.tertiary)
                 if snippets.items.isEmpty, !isAdding {
                     Text("Nothing here yet — add with +")
-                        .font(.system(size: 10))
+                        .font(.panelCaption)
                         .foregroundStyle(Theme.tertiary)
                 }
             }
@@ -269,9 +244,10 @@ private struct SnippetRow: View {
         HStack(spacing: editing ? 6 : 9) {
             if !editing {
                 Image(systemName: justCopied ? "checkmark" : item.symbol)
-                .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(justCopied ? Color.green : Theme.tertiary)
-                    .frame(width: 14)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 16)
             }
             // The name stays legible while the value is covered: the row has to
             // say what it copies, or a list of covered rows is a list of
@@ -285,11 +261,11 @@ private struct SnippetRow: View {
                 // read as text that had lost its alignment.
                 TextField(localized("Name"), text: $draftLabel)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white)
+                    .font(.panelBodyMedium)
+                    .foregroundStyle(Theme.primary)
                     .tint(Theme.secondary)
                     .padding(.horizontal, 7)
-                    .frame(width: 104, height: 20)
+                    .frame(width: 104, height: 22)
                     .background(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(Theme.surface)
@@ -299,11 +275,11 @@ private struct SnippetRow: View {
 
                 TextField(localized("Text"), text: $draftText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white)
+                    .font(.panelBody)
+                    .foregroundStyle(Theme.primary)
                     .tint(Theme.secondary)
                     .padding(.horizontal, 7)
-                    .frame(height: 20)
+                    .frame(height: 22)
                     .background(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(Theme.surface)
@@ -311,32 +287,21 @@ private struct SnippetRow: View {
                     .focused($focus, equals: .text)
                     .onSubmit { commit() }
 
-                Button { commit() } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(draftText.isEmpty ? Theme.tertiary : Color.green)
-                }
-                .buttonStyle(.plain)
-                .disabled(draftText.isEmpty)
+                RowIconButton(symbol: "checkmark", tint: .green, disabled: draftText.isEmpty) { commit() }
 
-                Button { cancel() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.secondary)
-                }
-                .buttonStyle(.plain)
+                RowIconButton(symbol: "xmark") { cancel() }
             } else {
                 if !item.label.isEmpty {
                     Text(item.label)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white)
+                        .font(.panelBodyMedium)
+                        .foregroundStyle(Theme.primary)
                         .lineLimit(1)
                         .layoutPriority(1)
                 }
                 SpoilerText(
                     text: item.text.replacingOccurrences(of: "\n", with: " "),
                     hidden: hidden,
-                    color: item.label.isEmpty ? .white : Theme.secondary,
+                    color: item.label.isEmpty ? Theme.primary : Theme.secondary,
                     seed: UInt64(bitPattern: Int64(item.id.hashValue))
                 )
             }
@@ -344,42 +309,27 @@ private struct SnippetRow: View {
             // Only under the pointer: a row of crosses would compete with the
             // snippets themselves for a glance.
             if hovering, !editing {
-                if privacy.covers(.snippets) {
-                    RevealEye(hidden: hidden) { privacy.toggle("snippet.\(item.id)") }
-                }
-                // Order is priority: the one reached for most often belongs on
-                // top. Arrows rather than dragging — the list is a few rows
-                // long, and a drag here brought more edge cases than movement:
-                // where a row lands under a live filter, what happens past the
-                // ends, and how it coexists with the taps that copy and edit.
-                Button { move(to: index - 1) } label: {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(index == 0 ? Theme.tertiary : Theme.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(index == 0)
+                HStack(spacing: 0) {
+                    if privacy.covers(.snippets) {
+                        RevealEye(hidden: hidden) { privacy.toggle("snippet.\(item.id)") }
+                    }
+                    // Order is priority: the one reached for most often belongs on
+                    // top. Arrows rather than dragging — the list is a few rows
+                    // long, and a drag here brought more edge cases than movement:
+                    // where a row lands under a live filter, what happens past the
+                    // ends, and how it coexists with the taps that copy and edit.
+                    RowIconButton(symbol: "chevron.up", disabled: index == 0) { move(to: index - 1) }
 
-                Button { move(to: index + 1) } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(isLast ? Theme.tertiary : Theme.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(isLast)
+                    RowIconButton(symbol: "chevron.down", disabled: isLast) { move(to: index + 1) }
 
-                Button { remove() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.secondary)
+                    RowIconButton(symbol: "xmark", help: localized("Delete")) { remove() }
                 }
-                .buttonStyle(.plain)
-                .pointerStyle(.default)
-                .help(localized("Delete"))
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, editing ? 6 : 9)
-        .frame(height: editing ? 28 : 26)
+        .padding(.leading, editing ? 6 : 9)
+        .padding(.trailing, editing ? 6 : 4)
+        .frame(height: editing ? 30 : 28)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(editing || hovering ? Theme.surfaceHover : Theme.surface)

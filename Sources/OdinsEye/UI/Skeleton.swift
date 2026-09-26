@@ -6,6 +6,7 @@ import SwiftUI
 struct SkeletonBox: View {
     var cornerRadius: CGFloat = 14
     @State private var sweep = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -22,7 +23,10 @@ struct SkeletonBox: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
+        // A still placeholder under Reduce Motion: the sweep is a loop, and
+        // loops are what that setting is for.
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.15).repeatForever(autoreverses: false)) {
                 sweep = true
             }
@@ -35,6 +39,7 @@ struct SkeletonBox: View {
 struct EqualizerBars: View {
     var isAnimating: Bool
     @State private var up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let low: [CGFloat] = [4, 7, 5]
     private let high: [CGFloat] = [10, 3, 8]
@@ -46,7 +51,7 @@ struct EqualizerBars: View {
                     .fill(Theme.tertiary)
                     .frame(width: 2, height: up ? high[index] : low[index])
                     .animation(
-                        isAnimating
+                        isAnimating && !reduceMotion
                             ? .easeInOut(duration: 0.44)
                                 .repeatForever(autoreverses: true)
                                 .delay(Double(index) * 0.12)
@@ -56,7 +61,7 @@ struct EqualizerBars: View {
             }
         }
         .frame(height: 10, alignment: .bottom)
-        .onAppear { up = isAnimating }
-        .onChange(of: isAnimating) { _, playing in up = playing }
+        .onAppear { up = isAnimating && !reduceMotion }
+        .onChange(of: isAnimating) { _, playing in up = playing && !reduceMotion }
     }
 }

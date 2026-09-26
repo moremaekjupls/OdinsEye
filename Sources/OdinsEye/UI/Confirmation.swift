@@ -34,7 +34,7 @@ struct CopyButton: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(copied ? Color.green : Theme.secondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .help(localized("Copy"))
         .animation(Theme.contentAnimation, value: copied)
     }

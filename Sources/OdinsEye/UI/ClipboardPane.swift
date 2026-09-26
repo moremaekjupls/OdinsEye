@@ -8,7 +8,7 @@ struct ClipboardPane: View {
         VStack(spacing: 0) {
             if clipboard.items.isEmpty {
                 Image(systemName: "list.clipboard")
-                    .font(.system(size: 20, weight: .light))
+                    .font(.system(size: 22, weight: .light))
                     .foregroundStyle(Theme.tertiary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -34,11 +34,8 @@ struct ClipboardPane: View {
             PrivacySwitch(privacy: privacy, section: .clipboard)
             // Pinned entries stay: "Clear" is for the stream, not the keepers.
             Button("Clear") { clipboard.clear() }
-                .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.secondary)
+                .buttonStyle(.plate)
                 .disabled(!clipboard.hasUnpinned)
-                .opacity(clipboard.hasUnpinned ? 1 : 0.4)
         }
         .padding(.top, 2)
     }
@@ -56,9 +53,10 @@ private struct ClipRow: View {
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: justCopied ? "checkmark" : (item.isPinned ? "pin.fill" : item.symbol))
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(justCopied ? Color.green : (item.isPinned ? Theme.secondary : Theme.tertiary))
-                .frame(width: 14)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 16)
             SpoilerText(
                 text: item.preview.replacingOccurrences(of: "\n", with: " "),
                 hidden: hidden,
@@ -66,30 +64,26 @@ private struct ClipRow: View {
             )
             Spacer(minLength: 6)
             if hovering {
-                if privacy.covers(.clipboard) {
-                    RevealEye(hidden: hidden) { privacy.toggle(item.id.uuidString) }
-                }
-                Button { clipboard.togglePin(item) } label: {
-                    Image(systemName: item.isPinned ? "pin.slash" : "pin")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.secondary)
-                }
-                .buttonStyle(.plain)
-                .help(item.isPinned ? localized("Unpin") : localized("Pin"))
-                // A pinned entry is deleted only after it is unpinned: one
-                // stray click must not take a keeper.
-                if !item.isPinned {
-                    Button { clipboard.remove(item) } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.secondary)
+                HStack(spacing: 0) {
+                    if privacy.covers(.clipboard) {
+                        RevealEye(hidden: hidden) { privacy.toggle(item.id.uuidString) }
                     }
-                    .buttonStyle(.plain)
+                    RowIconButton(
+                        symbol: item.isPinned ? "pin.slash" : "pin",
+                        help: item.isPinned ? localized("Unpin") : localized("Pin")
+                    ) { clipboard.togglePin(item) }
+                    // A pinned entry is deleted only after it is unpinned: one
+                    // stray click must not take a keeper.
+                    if !item.isPinned {
+                        RowIconButton(symbol: "xmark", help: localized("Delete")) { clipboard.remove(item) }
+                    }
                 }
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 9)
-        .frame(height: 26)
+        .padding(.leading, 9)
+        .padding(.trailing, 4)
+        .frame(height: 28)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(hovering ? Theme.surfaceHover : Theme.surface)

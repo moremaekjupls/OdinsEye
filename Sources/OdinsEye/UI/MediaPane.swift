@@ -17,11 +17,11 @@ struct MediaPane: View {
                 artwork(for: track)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(track.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(.panelTitle)
+                        .foregroundStyle(Theme.primary)
                         .lineLimit(1)
                     Text(subtitle(for: track))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundStyle(Theme.secondary)
                         .lineLimit(1)
                         .padding(.top, 3)
@@ -155,7 +155,7 @@ struct MediaPane: View {
             Text(formatTime(media.duration))
                 .frame(width: 32, alignment: .trailing)
         }
-        .font(.system(size: 10, weight: .medium).monospacedDigit())
+        .font(.panelMini.monospacedDigit())
         .foregroundStyle(Theme.tertiary)
     }
 
@@ -193,7 +193,7 @@ struct MediaPane: View {
             // Status, not instruction: an empty pane on its own would not say
             // whether nothing is playing or nothing could be read.
             Text("Nothing is playing")
-                .font(.system(size: 12, weight: .medium))
+                .font(.panelBodyMedium)
                 .foregroundStyle(Theme.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

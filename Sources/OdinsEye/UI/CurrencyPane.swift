@@ -13,6 +13,9 @@ struct CurrencyPane: View {
     @FocusState private var focused: Field?
     @State private var picking: PickerSide?
     @State private var query = ""
+    /// Half-turns of the swap arrows — each swap spins them once, so the
+    /// press shows what it did.
+    @State private var swapTurns = 0.0
 
     var body: some View {
         Group {
@@ -53,16 +56,20 @@ struct CurrencyPane: View {
 
                 Button {
                     currencies.swap()
+                    swapTurns += 1
                 } label: {
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.secondary)
+                        .rotationEffect(.degrees(180 * swapTurns))
                         .frame(width: 28, height: 28)
                         .background(
                             Circle().fill(Theme.surface)
                         )
+                        .contentShape(Circle())
+                        .animation(.spring(response: 0.35, dampingFraction: 0.9), value: swapTurns)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .pointerStyle(.default)
                 .padding(.top, 28)
                 .help(localized("Swap currencies"))
@@ -80,7 +87,7 @@ struct CurrencyPane: View {
 
             if let failure = currencies.failure, currencies.rates.isEmpty {
                 Text(failure)
-                    .font(.system(size: 10))
+                    .font(.panelCaption)
                     .foregroundStyle(Theme.secondary)
                     .lineLimit(2)
             }
@@ -101,31 +108,34 @@ struct CurrencyPane: View {
             } label: {
                 HStack(spacing: 6) {
                     Text(code.uppercased())
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.primary)
                     Text(name)
-                        .font(.system(size: 10))
+                        .font(.panelCaption)
                         .foregroundStyle(Theme.tertiary)
                         .lineLimit(1)
                     Spacer(minLength: 2)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
+                    // The same double chevron as a macOS pop-up button: it
+                    // says "a list opens here", not "this drops down".
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Theme.tertiary)
                 }
                 .padding(.horizontal, 8)
-                .frame(height: 22)
+                .frame(height: 24)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(Theme.surface)
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .pointerStyle(.default)
 
             TextField("0", text: text)
             .textFieldStyle(.plain)
-            .font(.system(size: 26, weight: .medium).monospacedDigit())
-            .foregroundStyle(.white)
+            .font(.system(size: 28, weight: .medium, design: .rounded).monospacedDigit())
+            .foregroundStyle(Theme.primary)
             .tint(Theme.secondary)
             .focused($focused, equals: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -151,12 +161,12 @@ struct CurrencyPane: View {
         return VStack(spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.tertiary)
                 TextField(localized("Search currency"), text: $query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white)
+                    .font(.panelBody)
+                    .foregroundStyle(Theme.primary)
                     .tint(Theme.secondary)
                     .focused($focused, equals: .search)
                     .onKeyPress(.escape) {
@@ -168,22 +178,14 @@ struct CurrencyPane: View {
                         return .handled
                     }
                 if !query.isEmpty {
-                    Button { query = "" } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .pointerStyle(.default)
+                    RowIconButton(symbol: "xmark.circle.fill", tint: Theme.tertiary) { query = "" }
                 }
                 Button(localized("Done")) { closePicker() }
-                    .buttonStyle(.plain)
-                    .pointerStyle(.default)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white)
+                    .buttonStyle(.plate)
             }
-            .padding(.horizontal, 9)
-            .frame(height: 24)
+            .padding(.leading, 9)
+            .padding(.trailing, 3)
+            .frame(height: 26)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Theme.surface)
@@ -191,13 +193,13 @@ struct CurrencyPane: View {
 
             if let failure = currencies.failure, currencies.currencies.isEmpty {
                 Text(failure)
-                    .font(.system(size: 11))
+                    .font(.panelBody)
                     .foregroundStyle(Theme.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.top, 8)
             } else if matches.isEmpty {
                 Text(localized("No currencies match"))
-                    .font(.system(size: 11))
+                    .font(.panelBody)
                     .foregroundStyle(Theme.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.top, 8)
@@ -205,34 +207,9 @@ struct CurrencyPane: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(matches) { currency in
-                            Button {
+                            CurrencyRow(currency: currency, selected: currency.code == selected) {
                                 choose(currency.code, for: side)
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Text(currency.displayCode)
-                                        .font(.system(size: 11, weight: .semibold).monospaced())
-                                        .foregroundStyle(.white)
-                                        .frame(width: 44, alignment: .leading)
-                                    Text(currency.name)
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(Theme.secondary)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 0)
-                                    if currency.code == selected {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                                .frame(height: 26)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(currency.code == selected ? Theme.surfaceHover : Color.clear)
-                                )
-                                .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -263,5 +240,46 @@ struct CurrencyPane: View {
         picking = nil
         query = ""
         if wantsKeyboard { focused = .source }
+    }
+}
+
+/// One currency in the picker. Highlighted under the pointer like a menu item,
+/// so moving down the list shows which row a click would take.
+private struct CurrencyRow: View {
+    let currency: CurrencyStore.Currency
+    let selected: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(currency.displayCode)
+                    .font(.system(size: 12, weight: .semibold).monospaced())
+                    .foregroundStyle(Theme.primary)
+                    .frame(width: 46, alignment: .leading)
+                Text(currency.name)
+                    .font(.panelBody)
+                    .foregroundStyle(Theme.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if selected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.primary)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(hovering ? Theme.surfaceHover : (selected ? Theme.surface : Color.clear))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .onHover { hovering = $0 }
+        .animation(Theme.contentAnimation, value: hovering)
     }
 }

@@ -205,9 +205,9 @@ struct SettingsPane: View {
     private var durationRow: some View {
         HStack(spacing: 4) {
             Image(systemName: "timer")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.secondary)
-                .frame(width: 16)
+                .frame(width: 18)
             Spacer(minLength: 8)
             ForEach(KeepAwake.Duration.allCases) { duration in
                 let selected = keepAwake.duration == duration
@@ -215,20 +215,20 @@ struct SettingsPane: View {
                     if keepAwake.isActive { keepAwake.start(duration) } else { keepAwake.duration = duration }
                 } label: {
                     Text(verbatim: duration.shortTitle)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(selected ? Color.white : Theme.secondary)
-                        .frame(width: 34, height: 18)
+                        .font(.panelCaptionMedium)
+                        .foregroundStyle(selected ? Theme.primary : Theme.secondary)
+                        .frame(width: 36, height: 20)
                         .background(
                             Capsule().fill(selected ? Theme.surfaceHover : Color.clear)
                         )
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .help(duration.title)
             }
         }
         .padding(.horizontal, 8)
-        .frame(height: 26)
+        .frame(height: 30)
     }
 
     /// Turning off is instant. Turning on goes through the Open panel first —
@@ -262,10 +262,11 @@ struct SettingsPane: View {
     @ViewBuilder
     private func section<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(Theme.tertiary)
+            // Sentence case, semibold, secondary — how System Settings heads
+            // its groups since macOS 13.
+            Text(title)
+                .font(.panelCaption.weight(.semibold))
+                .foregroundStyle(Theme.secondary)
                 .padding(.leading, 8)
             VStack(spacing: 1) {
                 rows()
@@ -281,19 +282,19 @@ struct SettingsPane: View {
     private func toggleRow(symbol: String, title: String, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.secondary)
-                .frame(width: 16)
+                .frame(width: 18)
             Text(title)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.white)
+                .font(.panelBody)
+                .foregroundStyle(Theme.primary)
             Spacer(minLength: 8)
             Toggle("", isOn: isOn)
                 .toggleStyle(NotchToggleStyle())
                 .labelsHidden()
         }
         .padding(.horizontal, 8)
-        .frame(height: 26)
+        .frame(height: 30)
     }
 
     /// The refusal to write over a broken file is only honest if it is
@@ -301,10 +302,10 @@ struct SettingsPane: View {
     private var configBrokenNotice: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Color.yellow.opacity(0.85))
             Text(localized("config.json is broken — click to open; nothing is overwritten"))
-                .font(.system(size: 10))
+                .font(.panelCaption)
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -313,7 +314,7 @@ struct SettingsPane: View {
         .contentShape(Rectangle())
         .onTapGesture { ConfigStore.reveal() }
         .padding(.horizontal, 8)
-        .frame(height: 26)
+        .frame(height: 30)
     }
 
     private func actionRow(
@@ -325,20 +326,48 @@ struct SettingsPane: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.secondary)
-                    .frame(width: 16)
+                    .frame(width: 18)
                 Text(title)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.white)
+                    .font(.panelBody)
+                    .foregroundStyle(Theme.primary)
                 Spacer(minLength: 8)
             }
             .padding(.horizontal, 8)
-            .frame(height: 26)
+            .frame(height: 30)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SettingsRowButtonStyle())
         .disabled(disabled)
-        .opacity(disabled ? 0.4 : 1)
+    }
+}
+
+/// A settings row that acts when clicked: lit under the pointer like a menu
+/// item, darker while held.
+private struct SettingsRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Row(configuration: configuration)
+    }
+
+    private struct Row: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(
+                            configuration.isPressed ? Theme.surfaceHover
+                                : (hovering && isEnabled ? Theme.surface : Color.clear)
+                        )
+                )
+                .opacity(isEnabled ? 1 : 0.4)
+                .onHover { hovering = $0 }
+                .animation(Theme.press, value: configuration.isPressed)
+                .animation(Theme.contentAnimation, value: hovering)
+        }
     }
 }

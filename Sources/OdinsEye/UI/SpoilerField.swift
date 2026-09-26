@@ -108,11 +108,11 @@ private struct Splitmix64 {
 struct SpoilerText: View {
     let text: String
     let hidden: Bool
-    var font: Font = .system(size: 11)
-    var color: Color = .white
+    var font: Font = .panelBody
+    var color: Color = Theme.primary
     /// Height of the field that stands in for the text, so a covered row is
     /// exactly as tall as an uncovered one.
-    var height: CGFloat = 12
+    var height: CGFloat = 14
     /// Anything stable that differs between rows — the row's id will do. Not
     /// the text itself: identical strings would then draw identical dust, and
     /// "these two rows hold the same thing" is worth hiding too.
@@ -147,13 +147,11 @@ struct RevealEye: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: hidden ? "eye" : "eye.slash")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Theme.secondary)
-        }
-        .buttonStyle(.plain)
-        .help(hidden ? Text(localized("Show")) : Text(localized("Hide")))
+        RowIconButton(
+            symbol: hidden ? "eye" : "eye.slash",
+            help: hidden ? localized("Show") : localized("Hide"),
+            action: action
+        )
     }
 }
 
@@ -174,18 +172,15 @@ struct PrivacySwitch: View {
     private var covering: Bool { privacy.covers(section) }
 
     var body: some View {
-        Button {
-            privacy.setCovering(section, !covering)
-        } label: {
-            Image(systemName: covering ? "eye.slash.fill" : "eye")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(covering ? Color.white.opacity(0.8) : Theme.secondary)
-        }
-        .buttonStyle(.plain)
         // The switch in the snippets tab stands next to the search field, and a
-        // focused field owns the I-beam over its own area: without a pointer of
-        // its own the button would keep the caret while being clickable.
-        .pointerStyle(.default)
-        .help(covering ? localized("Show") : localized("Hide"))
+        // focused field owns the I-beam over its own area: the row button sets
+        // its own pointer so it is clickable and looks it.
+        RowIconButton(
+            symbol: covering ? "eye.slash.fill" : "eye",
+            help: covering ? localized("Show") : localized("Hide"),
+            tint: covering ? Theme.primary : Theme.secondary
+        ) {
+            privacy.setCovering(section, !covering)
+        }
     }
 }

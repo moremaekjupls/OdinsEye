@@ -4,25 +4,26 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var controller: NotchController?
+    /// Shown only while "Не спать" is on — see `installStatusItem`.
     private var statusItem: NSStatusItem?
+    private var headerItem: NSMenuItem?
+    private var keepAwakeDurationItems: [KeepAwake.Duration: NSMenuItem] = [:]
+    private var keepAwakeDisplayItem: NSMenuItem?
     private var privacyItem: NSMenuItem?
     private var privacyAllItem: NSMenuItem?
     private var privacySectionItems: [PrivacyMode.Section: NSMenuItem] = [:]
-    private var keepAwakeItem: NSMenuItem?
-    private var keepAwakeDurationItems: [KeepAwake.Duration: NSMenuItem] = [:]
-    private var keepAwakeDisplayItem: NSMenuItem?
-    private var keepAwakeOffItem: NSMenuItem?
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller = NotchController()
         controller?.install()
         installStatusItem()
-        // The icon says whether "Не спать" is on, whoever switched it.
+        // The cup is the mode itself: it appears when "Не спать" turns on,
+        // whoever turned it on, and leaves when it ends.
         controller?.keepAwake?.$isActive
             .removeDuplicates()
             .sink { [weak self] active in
-                MainActor.assumeIsolated { self?.updateStatusIcon(keepingAwake: active) }
+                MainActor.assumeIsolated { self?.statusItem?.isVisible = active }
             }
             .store(in: &cancellables)
     }
@@ -32,49 +33,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller?.teardown()
     }
 
-    /// Reopen is the one gesture left once the icon is hidden: launching
-    /// OdinsEye.app again from Finder or Spotlight while it is already running.
-    /// `LSUIElement` gives it no Dock icon and no window to raise, but this
-    /// delegate method still fires — it is how the icon comes back.
+    /// Launching OdinsEye.app again while it runs — from Finder, Spotlight or
+    /// Launchpad — opens the panel. There is no Dock icon and, most of the
+    /// time, no menu bar icon, so this is the gesture that is always there.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        statusItem?.isVisible = true
+        controller?.toggle()
         return true
     }
 
     // MARK: - Menu bar item
 
+    /// The app lives in the notch, not in the menu bar. The one thing worth a
+    /// place there is a mode that changes how the Mac behaves while nobody is
+    /// looking at the panel — "Не спать" — so the item exists only while it is
+    /// on, as a cup, and its menu opens on that mode's controls.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem = item
-        updateStatusIcon(keepingAwake: false)
-        // Lets the icon be ⌘-dragged off the bar, the way any status item can
-        // be; `autosaveName` is what makes AppKit remember that across
-        // relaunches on its own, the same mechanism the explicit switch in
-        // Settings uses through `AppDelegate.isMenuBarIconVisible` below.
-        item.behavior = .removalAllowed
-        item.autosaveName = "OdinsEyeMenuBarIcon"
+        let image = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: localized("Keep Awake"))
+        image?.isTemplate = true
+        item.button?.image = image
+        item.isVisible = false
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(withTitle: "Odin's Eye \(Bundle.main.shortVersion)", action: nil, keyEquivalent: "")
+        menu.autoenablesItems = false
+
+        // "Не спать — 1:23", filled in when the menu opens.
+        let header = NSMenuItem(title: localized("Keep Awake"), action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        headerItem = header
+
+        // Picking the duration that is running turns it off, so the tick is
+        // also the off switch; picking another restarts the clock with it.
+        for duration in KeepAwake.Duration.allCases {
+            let entry = NSMenuItem(title: duration.title, action: #selector(pickKeepAwake(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = duration.rawValue
+            menu.addItem(entry)
+            keepAwakeDurationItems[duration] = entry
+        }
         menu.addItem(.separator())
+        let display = NSMenuItem(title: localized("Keep Display On"), action: #selector(toggleKeepAwakeDisplay), keyEquivalent: "")
+        display.target = self
+        menu.addItem(display)
+        keepAwakeDisplayItem = display
+        let off = NSMenuItem(title: localized("Turn Off"), action: #selector(turnOffKeepAwake), keyEquivalent: "")
+        off.target = self
+        menu.addItem(off)
 
-        let toggle = NSMenuItem(
-            title: localized("Open Panel"),
-            action: #selector(togglePanel),
-            keyEquivalent: ""
-        )
-        toggle.target = self
-        menu.addItem(toggle)
+        menu.addItem(.separator())
+        let open = NSMenuItem(title: localized("Open Panel"), action: #selector(togglePanel), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        menu.addItem(makePrivacyItem())
 
-        // Sits next to the panel switch rather than in the Settings tab: it
-        // changes what the panel shows, and it is the one people look for in a
-        // hurry, with the camera already running.
-        //
-        // A submenu rather than a plain switch, because the tabs hold different
-        // things and not everyone wants all of them covered. "All" comes first
-        // and is what most people will ever touch; the sections below it are
-        // for the case where that is too much.
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        item.menu = menu
+        statusItem = item
+    }
+
+    /// Sits in the menu because it is the one people reach for in a hurry,
+    /// with the camera already running. "All" comes first and is what most
+    /// people will ever touch; the sections below are for when that is too much.
+    private func makePrivacyItem() -> NSMenuItem {
         let privacy = NSMenuItem(title: localized("Hide Contents"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         submenu.autoenablesItems = false
@@ -86,82 +112,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(.separator())
 
         for section in PrivacyMode.Section.allCases {
-            let item = NSMenuItem(
-                title: section.title,
-                action: #selector(togglePrivacySection(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = section.rawValue
-            submenu.addItem(item)
-            privacySectionItems[section] = item
+            let entry = NSMenuItem(title: section.title, action: #selector(togglePrivacySection(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = section.rawValue
+            submenu.addItem(entry)
+            privacySectionItems[section] = entry
         }
-
         privacy.submenu = submenu
-        menu.addItem(privacy)
         privacyItem = privacy
-
-        menu.addItem(makeKeepAwakeItem())
-
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-
-        item.menu = menu
+        return privacy
     }
 
-    /// The raven while idle — one of Odin's two, Huginn and Muninn — and a
-    /// cup while "Не спать" holds the Mac awake.
-    private func updateStatusIcon(keepingAwake: Bool) {
-        let image = keepingAwake
-            ? NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: localized("Keep Awake"))
-            : Self.ravenImage
-        image?.isTemplate = true
-        statusItem?.button?.image = image
+    /// Everything shown is re-read when the menu opens, not kept fresh in
+    /// between: a menu nobody is looking at deserves no bookkeeping.
+    func menuWillOpen(_ menu: NSMenu) {
+        refreshKeepAwakeItems()
+        refreshPrivacyItems()
     }
-
-    /// `MenuBarIcon.pdf` from the bundle, vector at 18 pt. Run straight from
-    /// SwiftPM there is no bundle to find it in, so a system bird stands in.
-    private static let ravenImage: NSImage? = {
-        if let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "pdf"),
-           let image = NSImage(contentsOf: url) {
-            image.size = NSSize(width: 18, height: 18)
-            image.accessibilityDescription = "Odin's Eye"
-            return image
-        }
-        return NSImage(systemSymbolName: "bird.fill", accessibilityDescription: "Odin's Eye")
-    }()
 
     // MARK: - Keep awake
-
-    /// "Не спать" ▸ Бессрочно / 1 ч / 2 ч / 4 ч · Не гасить экран · Выключить.
-    /// Picking the duration that is already running turns it off, so the tick
-    /// is also the off switch.
-    private func makeKeepAwakeItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: localized("Keep Awake"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        submenu.autoenablesItems = false
-        for duration in KeepAwake.Duration.allCases {
-            let item = NSMenuItem(title: duration.title, action: #selector(pickKeepAwake(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = duration.rawValue
-            submenu.addItem(item)
-            keepAwakeDurationItems[duration] = item
-        }
-        submenu.addItem(.separator())
-        let display = NSMenuItem(title: localized("Keep Display On"), action: #selector(toggleKeepAwakeDisplay), keyEquivalent: "")
-        display.target = self
-        submenu.addItem(display)
-        keepAwakeDisplayItem = display
-        let off = NSMenuItem(title: localized("Turn Off"), action: #selector(turnOffKeepAwake), keyEquivalent: "")
-        off.target = self
-        submenu.addItem(off)
-        keepAwakeOffItem = off
-        parent.submenu = submenu
-        keepAwakeItem = parent
-        return parent
-    }
 
     @objc private func pickKeepAwake(_ sender: NSMenuItem) {
         guard let keepAwake = controller?.keepAwake,
@@ -175,8 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleKeepAwakeDisplay() {
-        guard let keepAwake = controller?.keepAwake else { return }
-        keepAwake.keepsDisplayOn.toggle()
+        controller?.keepAwake?.keepsDisplayOn.toggle()
     }
 
     @objc private func turnOffKeepAwake() {
@@ -186,28 +154,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshKeepAwakeItems() {
         guard let keepAwake = controller?.keepAwake else { return }
         if let left = keepAwake.remainingText() {
-            keepAwakeItem?.title = localized("Keep Awake — %@", left)
-            keepAwakeItem?.state = .on
+            headerItem?.title = localized("Keep Awake — %@", left)
         } else {
-            keepAwakeItem?.title = localized("Keep Awake")
-            keepAwakeItem?.state = .off
+            headerItem?.title = localized("Keep Awake")
         }
-        for (duration, item) in keepAwakeDurationItems {
-            item.state = keepAwake.isActive && keepAwake.duration == duration ? .on : .off
+        for (duration, entry) in keepAwakeDurationItems {
+            entry.state = keepAwake.isActive && keepAwake.duration == duration ? .on : .off
         }
         keepAwakeDisplayItem?.state = keepAwake.keepsDisplayOn ? .on : .off
-        keepAwakeOffItem?.isEnabled = keepAwake.isActive
     }
+
+    // MARK: - Panel, privacy, quit
 
     @objc private func togglePanel() {
         controller?.toggle()
-    }
-
-    /// Everything shown is re-read when the menu opens, not kept fresh in
-    /// between: a menu nobody is looking at deserves no bookkeeping.
-    func menuWillOpen(_ menu: NSMenu) {
-        refreshPrivacyItems()
-        refreshKeepAwakeItems()
     }
 
     @objc private func quit() {
@@ -217,8 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePrivacyAll(_ sender: NSMenuItem) {
         guard let privacy = controller?.privacy else { return }
         // Anything short of everything means "turn the rest on too"; only a
-        // full house turns them all off. One press, and no state where the
-        // item says All while half the sections are open.
+        // full house turns them all off.
         privacy.setCoveringAll(!privacy.coversAll)
         refreshPrivacyItems()
     }
@@ -232,31 +191,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// The parent item carries the summary: a tick when every section is
-    /// covered, a dash when some are. Without it the state is a submenu away,
-    /// and this is the one switch worth reading at a glance.
+    /// covered, a dash when some are.
     private func refreshPrivacyItems() {
         guard let privacy = controller?.privacy else { return }
         privacyItem?.state = privacy.coversAll ? .on : (privacy.coversAny ? .mixed : .off)
         privacyAllItem?.state = privacy.coversAll ? .on : .off
-        for (section, item) in privacySectionItems {
-            item.state = privacy.covers(section) ? .on : .off
+        for (section, entry) in privacySectionItems {
+            entry.state = privacy.covers(section) ? .on : .off
         }
-    }
-}
-
-extension AppDelegate {
-    /// Whether the status item shows at all. Reachable from the Settings tab
-    /// through the one `AppDelegate` the app has, rather than
-    /// threading a reference through the view hierarchy for a single switch.
-    ///
-    /// Nothing to migrate to `config.json`: AppKit already persists this
-    /// through `autosaveName`, which is also what a ⌘-drag off the bar updates
-    /// — the two paths to the same off state agree because they are the same
-    /// state.
-    @MainActor
-    static var isMenuBarIconVisible: Bool {
-        get { (NSApp.delegate as? AppDelegate)?.statusItem?.isVisible ?? true }
-        set { (NSApp.delegate as? AppDelegate)?.statusItem?.isVisible = newValue }
     }
 }
 
@@ -265,4 +207,3 @@ extension Bundle {
         (infoDictionary?["CFBundleShortVersionString"] as? String) ?? "dev"
     }
 }
-

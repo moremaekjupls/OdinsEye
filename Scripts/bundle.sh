@@ -47,8 +47,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-# Ворон для меню-бара, вектором. Обе иконки собирает Scripts/make-icons.py.
-cp "$ROOT/Resources/MenuBarIcon.pdf" "$APP/Contents/Resources/MenuBarIcon.pdf"
 # MIT требует, чтобы текст лицензии ехал вместе с каждой копией программы.
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 

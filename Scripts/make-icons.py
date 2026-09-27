@@ -4,9 +4,7 @@
     pip3 install pillow cairosvg
     python3 Scripts/make-icons.py
 
-Пишет Resources/AppIcon.icns (иконка приложения) и Resources/MenuBarIcon.pdf
-(ворон для меню-бара, шаблонное изображение: macOS сама красит его под
-светлую и тёмную тему).
+Пишет Resources/AppIcon.icns — иконку приложения.
 """
 import io
 import pathlib
@@ -16,8 +14,8 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Ворон в профиль, клювом влево, в квадрате 100×100. Один силуэт на обе
-# иконки. Последний подпуть перед лапами — глаз: в меню-баре он вырезан,
+# Ворон в профиль, клювом влево, в квадрате 100×100. Последний подпуть перед
+# лапами — глаз: из силуэта он убран,
 # на иконке приложения закрашен золотом.
 RAVEN = (
  # beak tip -> culmen -> forehead
@@ -71,14 +69,6 @@ def app_icon_svg(size: int) -> str:
 </svg>'''
 
 
-def menu_bar_svg() -> str:
-    # 18×18 pt, как значки системы; поля обрезаны, чтобы ворон занимал высоту.
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18pt" height="18pt" viewBox="4 5 94 94">'
-        f'<path d="{RAVEN}" fill="black" fill-rule="evenodd"/></svg>'
-    )
-
-
 def main() -> None:
     sizes = [16, 32, 64, 128, 256, 512, 1024]
     images = [
@@ -88,10 +78,6 @@ def main() -> None:
     icns = ROOT / "Resources" / "AppIcon.icns"
     images[-1].save(icns, append_images=images[:-1])
     print(f"wrote {icns.relative_to(ROOT)}")
-
-    pdf = ROOT / "Resources" / "MenuBarIcon.pdf"
-    cairosvg.svg2pdf(bytestring=menu_bar_svg().encode(), write_to=str(pdf))
-    print(f"wrote {pdf.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

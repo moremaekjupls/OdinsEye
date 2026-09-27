@@ -14,7 +14,6 @@ struct SettingsPane: View {
     @ObservedObject private var config = ConfigStore.shared
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var menuBarIconVisible = AppDelegate.isMenuBarIconVisible
     @State private var saveClipboardImages = NotchViewModel.saveClipboardImagesEnabled
     @State private var watchScreenshotFolder = false
     @State private var screenshotUsage: (files: Int, bytes: Int64) = (0, 0)
@@ -27,14 +26,6 @@ struct SettingsPane: View {
                         symbol: "arrow.forward.to.line",
                         title: localized("Launch at Login"),
                         isOn: launchAtLoginBinding
-                    )
-                    // Off means the same thing a ⌘-drag off the bar does —
-                    // both go through `AppDelegate.isMenuBarIconVisible`, so
-                    // whichever one somebody used, this switch shows it.
-                    toggleRow(
-                        symbol: "bird.fill",
-                        title: localized("Show Menu Bar Icon"),
-                        isOn: menuBarIconVisibleBinding
                     )
                 }
 
@@ -134,9 +125,6 @@ struct SettingsPane: View {
         // this replaces).
         .onAppear {
             launchAtLogin = SMAppService.mainApp.status == .enabled
-            // Also flipped by a ⌘-drag off the bar, not only by the switch
-            // below it — re-read for the same reason as the rest of this block.
-            menuBarIconVisible = AppDelegate.isMenuBarIconVisible
             saveClipboardImages = NotchViewModel.saveClipboardImagesEnabled
             watchScreenshotFolder = screenshots.isEnabled
             refreshUsage()
@@ -163,16 +151,6 @@ struct SettingsPane: View {
                     NSLog("OdinsEye: launch-at-login failed: \(error.localizedDescription)")
                 }
                 launchAtLogin = SMAppService.mainApp.status == .enabled
-            }
-        )
-    }
-
-    private var menuBarIconVisibleBinding: Binding<Bool> {
-        Binding(
-            get: { menuBarIconVisible },
-            set: { wants in
-                menuBarIconVisible = wants
-                AppDelegate.isMenuBarIconVisible = wants
             }
         )
     }

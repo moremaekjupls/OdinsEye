@@ -23,6 +23,7 @@ typedef void (*MRRegisterFn)(dispatch_queue_t);
 typedef void (*MRGetPIDFn)(dispatch_queue_t, void (^)(int));
 typedef void (*MRGetClientsFn)(dispatch_queue_t, void (^)(NSArray *));
 typedef Boolean (*MRSendCommandFn)(int, CFDictionaryRef);
+typedef void (*MRSetElapsedTimeFn)(double);
 typedef void (*MRSendCommandToPlayerFn)(int, CFDictionaryRef, id, id, id, void (^)(id));
 typedef void (*MRGetCommandsForPlayerFn)(id, dispatch_queue_t, void (^)(NSArray *));
 
@@ -32,6 +33,7 @@ static MRGetPIDFn sGetPID;
 static MRGetClientsFn sGetClients;
 static MRSendCommandToPlayerFn sSendCommandToPlayer;
 static MRSendCommandFn sSendCommand;
+static MRSetElapsedTimeFn sSetElapsedTime;
 static MRGetCommandsForPlayerFn sGetCommandsForPlayer;
 static int sOwnerPID;
 static dispatch_queue_t sQueue;
@@ -60,9 +62,13 @@ static id activePlayerPath(void);
 static void emit(NSDictionary *payload) {
     NSData *json = [NSJSONSerialization dataWithJSONObject:payload options:0 error:NULL];
     if (!json) return;
+    // One line at a time: the intent of a toggle is written from another
+    // thread than the snapshots, and two writers must not splice a line.
+    flockfile(stdout);
     fwrite(json.bytes, 1, json.length, stdout);
     fputc('\n', stdout);
     fflush(stdout);
+    funlockfile(stdout);
 }
 
 /// What the player says it accepts, refreshed alongside each publish and read
@@ -177,25 +183,29 @@ static void sendCommandToActivePlayer(MRCommand command, NSDictionary *options) 
     sSendCommandToPlayer(command, (__bridge CFDictionaryRef)options, nil, path, nil, ^(id result){});
 }
 
+/// Sends a transport command to the app the panel is showing — the system's
+/// now-playing app, the same one `MRMediaRemoteGetNowPlayingInfo` describes.
+///
+/// One route, never two. Sending the same command both system-wide and to the
+/// per-client `activePlayerPath` looked harmless for Pause, which is idempotent,
+/// but the two can name different apps: with a video playing in a browser and
+/// music paused, Play went to the video *and* to the music, and both played at
+/// once. The per-client route is kept only as the fallback for a system where
+/// `MRMediaRemoteSendCommand` cannot be found.
+static void sendCommand(MRCommand command) {
+    if (sSendCommand) {
+        sSendCommand(command, NULL);
+    } else {
+        sendCommandToActivePlayer(command, nil);
+    }
+}
+
 /// Play or pause, by the daemon's own state at this moment rather than by
 /// what the panel last believed — a stale belief sent Play to a player that
-/// was playing, and nothing paused.
-///
-/// Two routes, both with an explicit command, never a blind toggle, so the
-/// second is a no-op when the first already landed: the per-client one that
-/// next/previous use, and the system-wide `MRMediaRemoteSendCommand`, which
-/// some players answer when they ignore the per-client Pause. A player that
-/// lists only TogglePlayPause gets that on the per-client route instead.
+/// was playing, and nothing paused. Explicit Play or Pause, never a blind
+/// toggle, so a repeated press cannot flip it back.
 static void setPlaying(BOOL play) {
-    MRCommand wanted = play ? MRCommandPlay : MRCommandPause;
-    NSArray *commands = sCommands;
-    if (commands && ![commands containsObject:@(wanted)]
-        && [commands containsObject:@(MRCommandTogglePlayPause)]) {
-        sendCommandToActivePlayer(MRCommandTogglePlayPause, nil);
-    } else {
-        sendCommandToActivePlayer(wanted, nil);
-    }
-    if (sSendCommand) sSendCommand(wanted, NULL);
+    sendCommand(play ? MRCommandPlay : MRCommandPause);
 }
 
 static void togglePlayback(void) {
@@ -204,6 +214,9 @@ static void togglePlayback(void) {
         // Off `sQueue`: a call made from inside one of its own callbacks may
         // never return — see `refreshCommands`.
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            // Said before it is done, so the panel shows the state being asked
+            // for and holds it until the player catches up.
+            emit(@{@"intent": playing ? @NO : @YES});
             setPlaying(!playing);
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC),
                            dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ publish(); });
@@ -217,11 +230,16 @@ static void handleCommand(NSString *line) {
     } else if ([line isEqualToString:@"toggle"]) {
         togglePlayback();
     } else if ([line hasPrefix:@"cmd "]) {
-        sendCommandToActivePlayer((MRCommand)[line substringFromIndex:4].intValue, nil);
+        sendCommand((MRCommand)[line substringFromIndex:4].intValue);
         publish();
     } else if ([line hasPrefix:@"seek "]) {
         double seconds = [line substringFromIndex:5].doubleValue;
-        sendCommandToActivePlayer(MRCommandSeekToPlaybackPosition, @{@"kMRMediaRemoteOptionPlaybackPosition": @(seconds)});
+        // Same app as every other command — see `sendCommand`.
+        if (sSetElapsedTime) {
+            sSetElapsedTime(seconds);
+        } else {
+            sendCommandToActivePlayer(MRCommandSeekToPlaybackPosition, @{@"kMRMediaRemoteOptionPlaybackPosition": @(seconds)});
+        }
         publish();
     }
 }
@@ -241,6 +259,7 @@ static void startFeed(void) {
         sGetClients = (MRGetClientsFn)dlsym(handle, "MRMediaRemoteGetNowPlayingClients");
         sSendCommandToPlayer = (MRSendCommandToPlayerFn)dlsym(handle, "MRMediaRemoteSendCommandToPlayer");
         sSendCommand = (MRSendCommandFn)dlsym(handle, "MRMediaRemoteSendCommand");
+        sSetElapsedTime = (MRSetElapsedTimeFn)dlsym(handle, "MRMediaRemoteSetElapsedTime");
         sGetCommandsForPlayer = (MRGetCommandsForPlayerFn)dlsym(handle, "MRMediaRemoteGetSupportedCommandsForPlayer");
 
         MRRegisterFn registerNotifications =

@@ -36,6 +36,12 @@ final class MediaController: ObservableObject {
     private var anchor: (position: TimeInterval, at: Date)?
     /// Where we asked the player to jump, and when — see `apply`.
     private var pendingSeek: (target: TimeInterval, at: Date)?
+    /// Play or pause just asked for, and when — see `apply`. The same problem
+    /// as a seek: the player takes a moment to act, and a report taken in that
+    /// moment still says the old state. Accepted, it flipped the button back
+    /// for a beat and then forward again.
+    private var pendingPlayback: (playing: Bool, at: Date)?
+    private static let playbackGrace: TimeInterval = 2
     private var ticker: Timer?
     private var observers: [Any] = []
     /// Whether the panel is open — the ticker below runs only then.
@@ -45,6 +51,7 @@ final class MediaController: ObservableObject {
 
     func start() {
         feed.onUpdate = { [weak self] snapshot in self?.apply(snapshot) }
+        feed.onIntent = { [weak self] playing in self?.expect(playing: playing) }
         feed.onUnavailable = { [weak self] in self?.switchToScriptingFallback() }
         feed.start()
     }
@@ -78,9 +85,9 @@ final class MediaController: ObservableObject {
     // MARK: - Transport
 
     func togglePlayPause() {
-        // Optimistic flip so the button feels instant; the feed corrects it.
-        isPlaying.toggle()
-        setAnchor(position)
+        // Optimistic flip so the button feels instant. The helper then says
+        // what it actually decided (`expect`), and the feed confirms it.
+        expect(playing: !isPlaying)
         // Which of the two it is, the helper decides from the system's own
         // state: the one kept here can be stale, and a stale "paused" sent
         // Play to a playing player — nothing paused.
@@ -113,6 +120,16 @@ final class MediaController: ObservableObject {
         }
     }
 
+    /// Shows `playing` now and holds it against stale reports until the
+    /// player agrees or the grace runs out.
+    private func expect(playing: Bool) {
+        pendingPlayback = (playing, Date())
+        guard isPlaying != playing else { return }
+        isPlaying = playing
+        setAnchor(position)
+        updateTicker()
+    }
+
     private func dispatch(
         feed command: NowPlayingFeed.Command,
         script: (PlayerApp) -> Void,
@@ -133,8 +150,21 @@ final class MediaController: ObservableObject {
         guard !snapshot.isEmpty else { return clear() }
 
         let key = "\(snapshot.title)|\(snapshot.artist)|\(snapshot.album)"
+        // Another track is another question: an expectation about the old
+        // one says nothing about it.
+        if track?.key != key { pendingPlayback = nil }
         track = Track(title: snapshot.title, artist: snapshot.artist, album: snapshot.album, key: key)
-        isPlaying = snapshot.isPlaying || snapshot.rate > 0
+        let reportedPlaying = snapshot.isPlaying || snapshot.rate > 0
+        if let pending = pendingPlayback {
+            let agrees = reportedPlaying == pending.playing
+            let expired = Date().timeIntervalSince(pending.at) > Self.playbackGrace
+            if agrees || expired {
+                pendingPlayback = nil
+                isPlaying = reportedPlaying
+            }
+        } else {
+            isPlaying = reportedPlaying
+        }
         duration = snapshot.duration
         sourceName = snapshot.source
         // Both directions travel together: no player has ever offered one

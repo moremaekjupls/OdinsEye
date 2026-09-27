@@ -42,6 +42,9 @@ final class NowPlayingFeed {
     }
 
     var onUpdate: ((Snapshot) -> Void)?
+    /// Play (true) or pause (false), as the helper decided on a toggle —
+    /// before the player has acted on it.
+    var onIntent: ((Bool) -> Void)?
     /// Raised when the helper cannot run at all, so the caller can fall back.
     var onUnavailable: (() -> Void)?
 
@@ -208,6 +211,11 @@ final class NowPlayingFeed {
             return
         }
         failures = 0
+
+        if let intent = object["intent"] as? Bool {
+            onIntent?(intent)
+            return
+        }
 
         var snapshot = Snapshot()
         snapshot.isPlaying = object["playing"] as? Bool ?? false

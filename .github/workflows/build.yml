@@ -165,7 +165,7 @@ jobs:
         # upload-artifact: тот теряет права на исполняемый файл.
         run: ditto -c -k --keepParent build/OdinsEye.app build/OdinsEye.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: OdinsEye
           path: build/OdinsEye.zip

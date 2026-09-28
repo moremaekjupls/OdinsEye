@@ -77,6 +77,10 @@ final class NotchPanel: NSPanel {
     var onEscape: (() -> Bool)?
 
     override func sendEvent(_ event: NSEvent) {
+        // Before everything else: a non-key panel is handed trackpad scrolls
+        // as line ticks. Repair them so the scroll view sees pixels, the
+        // user's direction, and the flick. See `PanelScroll`.
+        let event = PanelScroll.event(byRepairing: event, in: self)
         if event.type == .keyDown, event.keyCode == Key.escape, onEscape?() == true { return }
         if event.type == .keyDown, editingAction(for: event) != nil, perform(event) { return }
         // Before `super`, so the window is already key by the time the click

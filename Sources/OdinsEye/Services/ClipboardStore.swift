@@ -93,6 +93,17 @@ final class ClipboardStore: ObservableObject {
     private var lastChangeCount = NSPasteboard.general.changeCount
     private let saves = DebouncedWrite(after: 1.0)
 
+    /// How long an unpinned entry is kept; `nil` keeps everything. Pinned
+    /// entries never expire. The history is whatever was copied, and a code, a
+    /// card number or a key that no password manager marked would otherwise sit
+    /// in `clipboard.json` — and in every backup of it — for good. Setting it
+    /// expires the old entries at once.
+    var retention: TimeInterval? {
+        didSet { expireOldEntries() }
+    }
+
+    private var lastExpiry = Date()
+
     /// `~/Library/Application Support/OdinsEye/clipboard.json`. Given rather
     /// than looked up so a test never touches the real history.
     let file: URL
@@ -139,6 +150,17 @@ final class ClipboardStore: ObservableObject {
 
     var hasUnpinned: Bool { items.contains { !$0.isPinned } }
 
+    /// Drops unpinned entries older than `retention`. Run when the retention
+    /// is set and from `poll()` at most once an hour, so a history nobody adds
+    /// to still ages out. Copying something again gives it a new date.
+    func expireOldEntries(now: Date = Date()) {
+        lastExpiry = now
+        guard let retention else { return }
+        let before = items.count
+        items.removeAll { !$0.isPinned && now.timeIntervalSince($0.date) > retention }
+        if items.count != before { scheduleSave() }
+    }
+
     func remove(_ item: ClipItem) {
         items.removeAll { $0.id == item.id }
         scheduleSave()
@@ -172,6 +194,7 @@ final class ClipboardStore: ObservableObject {
 
     private func poll() {
         let pasteboard = NSPasteboard.general
+        if Date().timeIntervalSince(lastExpiry) > 3600 { expireOldEntries() }
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 

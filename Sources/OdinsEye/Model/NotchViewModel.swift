@@ -192,7 +192,10 @@ final class NotchViewModel: ObservableObject {
     init() {
         self.media = MediaController()
         self.shelf = ShelfStore()
-        self.clipboard = ClipboardStore()
+        let clipboard = ClipboardStore()
+        let retentionDays = ConfigStore.shared.clipboardRetentionDays
+        clipboard.retention = retentionDays > 0 ? TimeInterval(retentionDays) * 86_400 : nil
+        self.clipboard = clipboard
         self.screenshotFolder = ScreenshotFolderWatcher()
         self.currencies = CurrencyStore()
         self.snippets = SnippetStore()

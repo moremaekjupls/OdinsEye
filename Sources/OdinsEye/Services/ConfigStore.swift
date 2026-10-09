@@ -28,6 +28,7 @@ final class ConfigStore: ObservableObject {
         var privacy: [String] = []
         var hiddenTabs: [String] = []
         var keepAwake = KeepAwakeConfig()
+        var clipboardRetentionDays = 30
 
         init() {}
 
@@ -44,6 +45,7 @@ final class ConfigStore: ObservableObject {
             privacy = try c.decodeIfPresent([String].self, forKey: .privacy) ?? d.privacy
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
+            clipboardRetentionDays = try c.decodeIfPresent(Int.self, forKey: .clipboardRetentionDays) ?? d.clipboardRetentionDays
         }
     }
 
@@ -84,6 +86,13 @@ final class ConfigStore: ObservableObject {
     var saveClipboardImages: Bool {
         get { value.saveClipboardImages }
         set { value.saveClipboardImages = newValue; persist() }
+    }
+
+    /// Days an unpinned clipboard entry is kept; 0 keeps everything. Edited by
+    /// hand in `config.json` — there is no switch for it in Settings yet.
+    var clipboardRetentionDays: Int {
+        get { value.clipboardRetentionDays }
+        set { value.clipboardRetentionDays = max(0, newValue); persist() }
     }
 
     /// Raw `PrivacyMode.Section` values. Kept as strings here rather than that

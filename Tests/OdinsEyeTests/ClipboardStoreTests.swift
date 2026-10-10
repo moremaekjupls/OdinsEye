@@ -94,6 +94,47 @@ struct ClipboardStoreTests {
         #expect(second.items[2].payload == .file(URL(fileURLWithPath: "/tmp/report.pdf")))
     }
 
+    @Test func oldUnpinnedEntriesExpireButPinnedOnesStay() throws {
+        let store = ClipboardStore(file: try Self.file())
+        let old = Date().addingTimeInterval(-40 * 86_400)
+        store.record(ClipItem(payload: .text("old"), date: old))
+        store.record(ClipItem(payload: .text("old pinned"), date: old))
+        store.togglePin(store.items[0])
+        store.record(Self.text("fresh"))
+        #expect(Self.texts(store) == ["old pinned", "fresh", "old"])
+
+        store.retention = 30 * 86_400
+        #expect(Self.texts(store) == ["old pinned", "fresh"])
+        #expect(store.items[0].isPinned)
+    }
+
+    @Test func withoutRetentionNothingExpires() throws {
+        let store = ClipboardStore(file: try Self.file())
+        store.record(ClipItem(payload: .text("ancient"), date: Date().addingTimeInterval(-3_650 * 86_400)))
+        store.expireOldEntries()
+        #expect(Self.texts(store) == ["ancient"])
+    }
+
+    @Test func copyingAgainGivesAnOldEntryANewDate() throws {
+        let store = ClipboardStore(file: try Self.file())
+        store.record(ClipItem(payload: .text("again"), date: Date().addingTimeInterval(-40 * 86_400)))
+        store.record(Self.text("again"))
+        store.retention = 30 * 86_400
+        #expect(Self.texts(store) == ["again"])
+    }
+
+    @Test func expiryReachesTheFileOnDisk() throws {
+        let file = try Self.file()
+        let first = ClipboardStore(file: file)
+        first.record(ClipItem(payload: .text("old"), date: Date().addingTimeInterval(-40 * 86_400)))
+        first.record(Self.text("fresh"))
+        first.retention = 30 * 86_400
+        first.flush()
+
+        let second = ClipboardStore(file: file)
+        #expect(Self.texts(second) == ["fresh"])
+    }
+
     @Test func historyFileIsPrivate() throws {
         let file = try Self.file()
         let store = ClipboardStore(file: file)

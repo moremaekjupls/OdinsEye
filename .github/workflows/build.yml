@@ -16,6 +16,10 @@ on:
     branches: [main, beta]
   workflow_dispatch:
 
+# The build only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   build:
     # macOS 15 — минимум приложения: Translation.framework младше не бывает.

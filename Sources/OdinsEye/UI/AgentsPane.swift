@@ -28,7 +28,7 @@ struct AgentsPane: View {
     }
 }
 
-private struct AgentRow: View {
+struct AgentRow: View {
     let session: AgentSession
 
     var body: some View {
@@ -46,15 +46,26 @@ private struct AgentRow: View {
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
             Spacer(minLength: 6)
-            Text(session.updatedAt, style: .relative)
-                .font(.panelCaption.monospacedDigit())
-                .foregroundStyle(Theme.tertiary)
+            // Раз в минуту, а не каждую секунду, как `.relative`: панель
+            // открыта подолгу, и тикающие секунды — это перерисовка впустую.
+            TimelineView(.everyMinute) { context in
+                Text(Self.ago(session.updatedAt, now: context.date))
+                    .font(.panelCaption.monospacedDigit())
+                    .foregroundStyle(Theme.tertiary)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.surface)
         )
+    }
+
+    static func ago(_ date: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(date))
+        if seconds < 60 { return localized("now") }
+        if seconds < 3600 { return localized("%d min", Int(seconds / 60)) }
+        return localized("%d h", Int(seconds / 3600))
     }
 
     private var detail: String {

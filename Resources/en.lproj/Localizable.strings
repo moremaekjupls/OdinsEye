@@ -100,3 +100,6 @@
 "Thinking" = "Thinking";
 "Working" = "Working";
 "Waiting for you" = "Waiting for you";
+"now" = "now";
+"%d min" = "%d min";
+"%d h" = "%d h";

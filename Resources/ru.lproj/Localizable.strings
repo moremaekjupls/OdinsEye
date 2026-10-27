@@ -99,3 +99,6 @@
 "Thinking" = "Думает";
 "Working" = "Работает";
 "Waiting for you" = "Ждёт вас";
+"now" = "сейчас";
+"%d min" = "%d мин";
+"%d h" = "%d ч";

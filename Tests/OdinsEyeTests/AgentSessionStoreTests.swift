@@ -191,3 +191,14 @@ struct AgentSocketRoundTripTests {
         #expect(!FileManager.default.fileExists(atPath: path))
     }
 }
+
+struct AgentRowTimeTests {
+    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+
+    @Test func agoIsShort() {
+        #expect(AgentRow.ago(t0, now: t0.addingTimeInterval(5)) == "now")
+        #expect(AgentRow.ago(t0, now: t0.addingTimeInterval(300)) == "5 min")
+        #expect(AgentRow.ago(t0, now: t0.addingTimeInterval(7300)) == "2 h")
+        #expect(AgentRow.ago(t0, now: t0.addingTimeInterval(-9)) == "now")
+    }
+}

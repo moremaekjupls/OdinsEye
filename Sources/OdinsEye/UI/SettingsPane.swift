@@ -27,6 +27,11 @@ struct SettingsPane: View {
                         title: localized("Launch at Login"),
                         isOn: launchAtLoginBinding
                     )
+                    toggleRow(
+                        symbol: "speaker.wave.2",
+                        title: localized("Peeky Sounds"),
+                        isOn: Binding(get: { config.sounds }, set: { config.sounds = $0 })
+                    )
                 }
 
                 // The rail is for what gets a glance between other things.

@@ -25,6 +25,8 @@ final class ConfigStore: ObservableObject {
 
     private struct File: Codable, Equatable {
         var saveClipboardImages = true
+        /// Тихие звуки Peeky (приветствие, запрос, «готово»).
+        var sounds = true
         var privacy: [String] = []
         var hiddenTabs: [String] = []
         var keepAwake = KeepAwakeConfig()
@@ -41,6 +43,7 @@ final class ConfigStore: ObservableObject {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             let d = File()
             saveClipboardImages = try c.decodeIfPresent(Bool.self, forKey: .saveClipboardImages) ?? d.saveClipboardImages
+            sounds = try c.decodeIfPresent(Bool.self, forKey: .sounds) ?? d.sounds
             privacy = try c.decodeIfPresent([String].self, forKey: .privacy) ?? d.privacy
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
@@ -84,6 +87,12 @@ final class ConfigStore: ObservableObject {
     var saveClipboardImages: Bool {
         get { value.saveClipboardImages }
         set { value.saveClipboardImages = newValue; persist() }
+    }
+
+    /// Свои тихие звуки Peeky. Включены по умолчанию.
+    var sounds: Bool {
+        get { value.sounds }
+        set { value.sounds = newValue; persist() }
     }
 
     /// Raw `PrivacyMode.Section` values. Kept as strings here rather than that

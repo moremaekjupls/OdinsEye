@@ -142,12 +142,12 @@ final class PeekyLayerView: NSView {
 
     /// Перенести состояние движка на слои.
     func apply() {
-        guard let pose = engine.poses[engine.mood], bodyRect.width > 0 else { return }
+        guard let pose = engine.poses[engine.displayMood], bodyRect.width > 0 else { return }
         let v = engine.value
         let side = bodyRect.width
         withoutAnimation {
-            if shownMood != engine.mood {
-                shownMood = engine.mood
+            if shownMood != engine.displayMood {
+                shownMood = engine.displayMood
                 body.contents = pose.image
             }
             // rig: положение «пола» плюс смещение, наклон и сплющивание вокруг ног.
@@ -217,7 +217,7 @@ final class PeekyLayerView: NSView {
 
     private func placeBadge(pose: PeekyPose, side: CGFloat, scale: Double) {
         // На маленьком теле значок не разобрать: за состояние отвечают глаза и точки справа.
-        let visible = side >= 60 && scale > 0.01
+        let visible = side >= 60 && scale > 0.01 && engine.greetPhase == nil
         let mood = engine.mood
         let center = CGPoint(x: bodyRect.minX + (pose.faceCenter.x + pose.faceWidth * 0.46) * side,
                              y: bodyRect.minY + (pose.faceCenter.y - pose.faceHeight * 0.58) * side)

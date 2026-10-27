@@ -14,6 +14,14 @@ final class PointerWatcher {
     var openRect: CGRect = .zero
     /// Leaving this closes the panel, in screen coordinates.
     var closeRect: CGRect = .zero
+    /// «Уши» острова вокруг чёлки (пусто, пока аватара нет). Курсор,
+    /// постоявший здесь `earDwell`, раскрывает панель; сам вход вызывает
+    /// `onEarHover(true)`, чтобы Peeky успел поздороваться, а выход до
+    /// раскрытия `onEarHover(false)`. Сама чёлка по-прежнему открывает
+    /// панель сразу: её порог настроен отдельно и не тронут.
+    var earRect: CGRect = .zero
+    var earDwell: TimeInterval = 0.45
+    var onEarHover: ((Bool) -> Void)?
     /// Where the panel takes clicks. Everywhere else the window must let them
     /// through, so this doubles as the `ignoresMouseEvents` trigger.
     var interactiveRect: CGRect = .zero
@@ -49,6 +57,7 @@ final class PointerWatcher {
     private(set) var isInside = false
     private var timer: Timer?
     private var awaitingSince: Date?
+    private var earEnteredAt: Date?
     private var wasInteractive: Bool?
     private var isWarm = false
     private var lastPoint = CGPoint(x: -1, y: -1)
@@ -123,8 +132,9 @@ final class PointerWatcher {
         isInside = value
     }
 
-    private func tick() {
-        let point = NSEvent.mouseLocation
+    /// Точка параметром, чтобы логику наведения можно было гонять в тестах
+    /// синтетическими движениями курсора.
+    func tick(at point: CGPoint = NSEvent.mouseLocation) {
         updateRate(for: point)
 
         let interactive = isDragging() || interactiveRect.contains(point)
@@ -133,7 +143,23 @@ final class PointerWatcher {
             onInteractiveChange?(interactive)
         }
 
-        let inside = (isInside ? closeRect : openRect).contains(point)
+        var inside = (isInside ? closeRect : openRect).contains(point)
+
+        // «Ухо»: приветствие сразу, раскрытие после паузы.
+        if !inside, !isInside, !isPanelOpen(), !earRect.isEmpty, earRect.contains(point) {
+            let since: Date
+            if let entered = earEnteredAt {
+                since = entered
+            } else {
+                since = Date()
+                earEnteredAt = since
+                onEarHover?(true)
+            }
+            if Date().timeIntervalSince(since) >= earDwell { inside = true }
+        } else if earEnteredAt != nil {
+            earEnteredAt = nil
+            onEarHover?(false)
+        }
 
         // Whether the panel is open and where the pointer is are two separate
         // facts, and only one of them is tracked here. They are supposed to

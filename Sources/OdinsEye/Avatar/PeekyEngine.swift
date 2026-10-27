@@ -62,6 +62,10 @@ final class PeekyEngine: @unchecked Sendable {
     private var doubleBlinkAt: Double?
     private var nextZ: Double = 0
     private var sparksAt: Double?
+    private var greetStart: Double?
+    /// Приветствие: 0 с наклон и счастливые глаза, 0,25 с рука вверх, 1,55 с
+    /// рука опущена, 1,85 с конец. Сроки по образцу сценария приветствия у Coucou.
+    static let greetHandUp = 0.25, greetHandDown = 1.55, greetDuration = 1.85
 
     /// Куда смотрит курсор относительно Peeky, от -1 до 1. Ставит тот, кто
     /// знает, где Peeky на экране.
@@ -100,6 +104,30 @@ final class PeekyEngine: @unchecked Sendable {
         default:
             squash(now: now)
         }
+    }
+
+    /// Приветствие взмахом, когда курсор остановился у «уха». Не трогает того,
+    /// кто сейчас просит решения или кувыркается. Возвращает, началось ли оно.
+    @discardableResult
+    func greet(now: Double) -> Bool {
+        guard mood != .waiting, mood != .done else { return false }
+        if let start = greetStart, now - start < Self.greetDuration + 2 { return false }
+        greetStart = now
+        // Присел и подпрыгнул: «привет!»
+        anim(.oy, [Key(to: 0.03, ms: 80), Key(to: -0.07, ms: 150), Key(to: 0, ms: 250, ease: .back)], now: now)
+        return true
+    }
+
+    /// Секунды с начала приветствия; `nil`, если его нет.
+    var greetPhase: Double? {
+        guard let start = greetStart, last >= start, last - start < Self.greetDuration else { return nil }
+        return last - start
+    }
+
+    /// Какое тело показывать: на время взмаха это поза с поднятой рукой.
+    var displayMood: PeekyMood {
+        if let g = greetPhase, g >= Self.greetHandUp, g < Self.greetHandDown { return .waiting }
+        return mood
     }
 
     /// Событие хука: короткий толчок и взгляд в сторону.
@@ -191,6 +219,12 @@ final class PeekyEngine: @unchecked Sendable {
         case .done:
             target.gx = cx * 0.3; target.gy = cy * 0.25
         }
+        if let g = greetPhase {
+            // Качает головой с частотой 1,2 Гц и смотрит прямо; значок убран.
+            target.tilt = -0.06 + 0.07 * sin(2 * .pi * 1.2 * g)
+            target.gx = 0; target.gy = 0; target.badge = 0
+            if mood == .asleep { target.open = 1 }
+        }
         let breathe = target.breathe * sin(target.breatheRate * t)
         return [
             .open: target.open, .gx: target.gx, .gy: target.gy, .tilt: target.tilt, .badge: target.badge,
@@ -213,7 +247,7 @@ final class PeekyEngine: @unchecked Sendable {
         }
 
         // Моргание: раз в 2,2–5,4 с, в 22% случаев дважды подряд.
-        let awake = mood != .asleep && mood != .done
+        let awake = mood != .asleep && mood != .done && greetPhase == nil
         if awake, tweens[.open] == nil {
             if let at = doubleBlinkAt, now >= at {
                 doubleBlinkAt = nil
@@ -259,6 +293,7 @@ final class PeekyEngine: @unchecked Sendable {
     enum EyeStyle { case pill, round, arc, sleepy }
 
     var eyeStyle: EyeStyle {
+        if greetPhase != nil { return .arc }
         switch mood {
         case .asleep: return .sleepy
         case .done: return .arc

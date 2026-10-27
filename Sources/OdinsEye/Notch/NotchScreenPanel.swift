@@ -142,6 +142,20 @@ final class NotchScreenPanel {
         // Nothing under the hole means opening the moment the pointer arrives
         // costs nothing.
         pointer.openDelay = 0.05
+        // «Уши» острова наводят на панель после паузы, и Peeky здоровается.
+        pointer.onEarHover = { [weak self] entered in
+            guard entered else { return }
+            self?.vm.avatar.greet()
+        }
+        vm.avatar.$isPresent
+            .removeDuplicates()
+            .sink { [weak self] present in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.pointer.earRect = present ? self.geometry.earRect(earWidth: AvatarPanel.Layout.earWidth) : .zero
+                }
+            }
+            .store(in: &cancellables)
         pointer.isDragging = { [weak root] in root?.isReceivingDrag ?? false }
         pointer.isPanelOpen = { [weak state] in state?.isOpen ?? false }
         pointer.onChange = { [weak self] inside in
@@ -191,7 +205,7 @@ final class NotchScreenPanel {
                         if self.vm.isVisible(.agents) { self.vm.tab = .agents }
                         self.pointer.setInside(true)
                         self.setOpen(true)
-                        NSSound(named: "Tink")?.play()
+                        PeekySounds.shared.play(.ask)
                     } else {
                         self.scheduleCollapseIfPointerAway()
                     }

@@ -65,6 +65,11 @@ if [ -d "$ROOT/Resources/peeky" ]; then
     cp -R "$ROOT/Resources/peeky" "$APP/Contents/Resources/peeky"
 fi
 
+# Свои тихие звуки Peeky (Resources/sounds/*.wav, синтез: assets/sounds/make_sounds.py).
+if [ -d "$ROOT/Resources/sounds" ]; then
+    cp -R "$ROOT/Resources/sounds" "$APP/Contents/Resources/sounds"
+fi
+
 # Now Playing helper. Built here rather than by SwiftPM because it is not linked
 # into the app: it is loaded into /usr/bin/perl at runtime. See helper.m.
 echo "==> building Now Playing helper"

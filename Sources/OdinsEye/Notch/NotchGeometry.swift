@@ -159,6 +159,17 @@ struct NotchGeometry {
         ))
     }
 
+    /// Весь остров в свёрнутом виде: чёлка и «ушки» по бокам. Курсор,
+    /// постоявший здесь, раскрывает панель (см. `PointerWatcher.earRect`).
+    func earRect(earWidth: CGFloat) -> CGRect {
+        includingTopEdge(CGRect(
+            x: notchCenterX - notchSize.width / 2 - earWidth,
+            y: screen.frame.maxY - notchSize.height - 2,
+            width: notchSize.width + 2 * earWidth,
+            height: notchSize.height + 2
+        ))
+    }
+
     /// Band along the top of the display in which pointer sampling runs at
     /// full rate. Deep enough that a pointer heading for the notch is always
     /// noticed before it arrives.

@@ -74,7 +74,8 @@ final class AvatarPanel {
         let notchWidth: CGFloat
         let notchHeight: CGFloat
         /// Ширина «ушка».
-        let ear: CGFloat = 48
+        static let earWidth: CGFloat = 48
+        var ear: CGFloat { Self.earWidth }
         /// Поле снаружи «ушек»: Peeky может выйти за них.
         let margin: CGFloat = 14
         /// Сколько окно выступает вниз за полосу меню.

@@ -29,6 +29,7 @@ final class AvatarModel: ObservableObject {
 
     var isShown: Bool { isPresent && !isCovered && engine != nil }
 
+    private let sounds: PeekySounds
     private var cancellables = Set<AnyCancellable>()
     private var dozeTask: Task<Void, Never>?
     private var isDozing = false
@@ -37,10 +38,12 @@ final class AvatarModel: ObservableObject {
 
     init(
         store: AgentSessionStore, poses: [PeekyMood: PeekyPose]? = PeekyAssets.loadBundled(),
-        dozeAfter: TimeInterval = AvatarModel.defaultDozeAfter
+        dozeAfter: TimeInterval = AvatarModel.defaultDozeAfter,
+        sounds: PeekySounds = .shared
     ) {
         engine = poses.map(PeekyEngine.init(poses:))
         self.dozeAfter = dozeAfter
+        self.sounds = sounds
 
         // Значения берём из самого события: `@Published` сообщает до
         // присваивания, и чтение свойства стора из замыкания дало бы старое.
@@ -52,6 +55,13 @@ final class AvatarModel: ObservableObject {
         store.events
             .sink { [weak self] _ in self?.eventArrived() }
             .store(in: &cancellables)
+    }
+
+    /// Курсор остановился у «уха»: Peeky здоровается. Звук только если он
+    /// действительно виден и взмах начался.
+    func greet() {
+        guard isShown, let engine, engine.greet(now: CACurrentMediaTime()) else { return }
+        sounds.play(.hello)
     }
 
     func setCovered(_ covered: Bool) {
@@ -105,6 +115,7 @@ final class AvatarModel: ObservableObject {
         guard next != mood else { return }
         mood = next
         engine?.setMood(next, now: CACurrentMediaTime())
+        if next == .done { sounds.play(.done) }
     }
 
     private func scheduleDoze() {

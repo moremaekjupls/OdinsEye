@@ -109,3 +109,30 @@
 "Always this session" = "Всегда в этой сессии";
 "Too long to review here. Answer in the terminal." = "Слишком длинно, чтобы проверить здесь. Ответьте в терминале.";
 "Peeky Sounds" = "Звуки Peeky";
+
+/* GitHub */
+"Copy a repository link, then press +" = "Скопируйте ссылку на репозиторий и нажмите +";
+"Refresh" = "Обновить";
+"Add repository from clipboard" = "Добавить репозиторий из буфера обмена";
+"Remove" = "Убрать";
+"Loading…" = "Загрузка…";
+"Offline" = "Нет сети";
+"No connection" = "Нет соединения";
+"Not found or private" = "Не найден или приватный";
+"Rate limit reached, retry at %@" = "Лимит запросов исчерпан, повтор в %@";
+"Updated %@" = "Обновлено: %@";
+"Updated %@ · %d requests left" = "Обновлено: %@ · осталось запросов: %d";
+"Added %@" = "Добавлен %@";
+"That is not a GitHub repository link" = "Это не ссылка на репозиторий GitHub";
+"Already in the list" = "Уже в списке";
+"Up to 8 repositories" = "Не больше 8 репозиториев";
+"%d PR" = "PR: %d";
+"passing" = "сборка зелёная";
+"failing" = "сборка упала";
+"running" = "идёт сборка";
+"no CI" = "без CI";
+"CI ?" = "CI ?";
+"draft" = "черновик";
+"needs review" = "ждёт ревью";
+"approved" = "одобрен";
+"changes" = "правки";

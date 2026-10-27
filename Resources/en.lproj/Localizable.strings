@@ -110,3 +110,30 @@
 "Always this session" = "Always this session";
 "Too long to review here. Answer in the terminal." = "Too long to review here. Answer in the terminal.";
 "Peeky Sounds" = "Peeky Sounds";
+
+/* GitHub */
+"Copy a repository link, then press +" = "Copy a repository link, then press +";
+"Refresh" = "Refresh";
+"Add repository from clipboard" = "Add repository from clipboard";
+"Remove" = "Remove";
+"Loading…" = "Loading…";
+"Offline" = "Offline";
+"No connection" = "No connection";
+"Not found or private" = "Not found or private";
+"Rate limit reached, retry at %@" = "Rate limit reached, retry at %@";
+"Updated %@" = "Updated %@";
+"Updated %@ · %d requests left" = "Updated %@ · %d requests left";
+"Added %@" = "Added %@";
+"That is not a GitHub repository link" = "That is not a GitHub repository link";
+"Already in the list" = "Already in the list";
+"Up to 8 repositories" = "Up to 8 repositories";
+"%d PR" = "%d PR";
+"passing" = "passing";
+"failing" = "failing";
+"running" = "running";
+"no CI" = "no CI";
+"CI ?" = "CI ?";
+"draft" = "draft";
+"needs review" = "needs review";
+"approved" = "approved";
+"changes" = "changes";

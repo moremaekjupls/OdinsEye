@@ -101,6 +101,8 @@ struct NotchContentView: View {
             }
         case .agents:
             counter(vm.agents.sessions.count)
+        case .github:
+            counter(vm.github.totalPulls)
         case .shelf:
             counter(vm.shelf.items.count)
         case .clipboard:
@@ -173,6 +175,8 @@ struct NotchContentView: View {
             MediaPane(media: vm.media)
         case .agents:
             AgentsPane(agents: vm.agents, avatar: vm.avatar)
+        case .github:
+            GitHubPane(github: vm.github)
         case .shelf:
             ShelfPane(shelf: vm.shelf, isTargeted: panel.isDropTargeted)
         case .clipboard:
@@ -270,6 +274,9 @@ private struct Rail: View {
     private func badge(for tab: NotchViewModel.Tab) -> some View {
         if tab == .agents, let worst = vm.agents.worst, worst >= .thinking {
             Circle().fill(worst.color).frame(width: 6, height: 6).offset(x: -3, y: 3)
+        } else if tab == .github, vm.github.hasFailingCI {
+            // Красный только для ошибок: сломанная сборка на основной ветке.
+            Circle().fill(Color(red: 0.91, green: 0.0, blue: 0.04)).frame(width: 6, height: 6).offset(x: -3, y: 3)
         }
     }
 

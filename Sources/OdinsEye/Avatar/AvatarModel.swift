@@ -33,6 +33,10 @@ final class AvatarModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var script: Task<Void, Never>?
     private var glanceTask: Task<Void, Never>?
+    private var lastGlance = Date.distantPast
+    /// Не чаще одного взгляда за это время: событий может быть много в секунду,
+    /// а каждая анимация стоит перерисовки на 60 кадрах.
+    static let glanceInterval: TimeInterval = 1.5
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     init(store: AgentSessionStore, skins: AvatarSkins? = nil) {
@@ -148,7 +152,9 @@ final class AvatarModel: ObservableObject {
 
     /// Короткий взгляд в сторону на каждое событие, пока агент работает.
     private func glance() {
-        guard mood == .working, !reduceMotion else { return }
+        guard mood == .working, !reduceMotion,
+              Date().timeIntervalSince(lastGlance) >= Self.glanceInterval else { return }
+        lastGlance = Date()
         let directions = [CGSize(width: -0.8, height: 0), CGSize(width: 0.8, height: 0),
                           CGSize(width: 0, height: -0.7), CGSize(width: 0.5, height: 0.5)]
         glanceTask?.cancel()

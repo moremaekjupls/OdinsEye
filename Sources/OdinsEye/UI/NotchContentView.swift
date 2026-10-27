@@ -99,6 +99,8 @@ struct NotchContentView: View {
                     .font(.panelCaptionMedium)
                     .foregroundStyle(Theme.tertiary)
             }
+        case .agents:
+            counter(vm.agents.sessions.count)
         case .shelf:
             counter(vm.shelf.items.count)
         case .clipboard:
@@ -169,6 +171,8 @@ struct NotchContentView: View {
         switch vm.tab {
         case .media:
             MediaPane(media: vm.media)
+        case .agents:
+            AgentsPane(agents: vm.agents)
         case .shelf:
             ShelfPane(shelf: vm.shelf, isTargeted: panel.isDropTargeted)
         case .clipboard:
@@ -230,6 +234,7 @@ private struct Rail: View {
                                 .fill(fill(for: tab))
                         )
                         .foregroundStyle(vm.tab == tab ? Color.white : (hovered == tab ? Theme.secondary : Theme.tertiary))
+                        .overlay(alignment: .topTrailing) { badge(for: tab) }
                         .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 // Highlight, not growth: macOS marks the item under the pointer
@@ -256,6 +261,15 @@ private struct Rail: View {
             try? await Task.sleep(for: dwell)
             guard !Task.isCancelled else { return }
             panel.select(hovered)
+        }
+    }
+
+    /// Точка на значке «Сессий»: оранжевая, если кто-то ждёт, синяя, если
+    /// кто-то работает. Свободные и закончившие точки не получают.
+    @ViewBuilder
+    private func badge(for tab: NotchViewModel.Tab) -> some View {
+        if tab == .agents, let worst = vm.agents.worst, worst >= .thinking {
+            Circle().fill(worst.color).frame(width: 6, height: 6).offset(x: -3, y: 3)
         }
     }
 

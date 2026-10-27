@@ -92,3 +92,11 @@
 "2 h" = "2 h";
 "4 h" = "4 h";
 "Turn Off" = "Turn Off";
+
+/* Claude Code sessions */
+"Sessions" = "Sessions";
+"No Claude Code sessions" = "No Claude Code sessions";
+"Idle" = "Idle";
+"Thinking" = "Thinking";
+"Working" = "Working";
+"Waiting for you" = "Waiting for you";

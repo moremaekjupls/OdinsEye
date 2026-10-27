@@ -3,6 +3,7 @@
 
 /* Вкладки */
 "Music" = "Музыка";
+"Sessions" = "Сессии";
 "Shelf" = "Полка";
 "Clipboard" = "Буфер";
 "Snippets" = "Заготовки";
@@ -91,3 +92,10 @@
 "2 h" = "2 ч";
 "4 h" = "4 ч";
 "Turn Off" = "Выключить";
+
+/* Сессии Claude Code */
+"No Claude Code sessions" = "Нет сессий Claude Code";
+"Idle" = "Свободен";
+"Thinking" = "Думает";
+"Working" = "Работает";
+"Waiting for you" = "Ждёт вас";

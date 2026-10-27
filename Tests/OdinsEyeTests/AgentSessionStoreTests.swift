@@ -202,3 +202,27 @@ struct AgentRowTimeTests {
         #expect(AgentRow.ago(t0, now: t0.addingTimeInterval(-9)) == "now")
     }
 }
+
+/// Полезные нагрузки, снятые с настоящего Claude Code 2.1.304 (27.10.2026):
+/// проверка, что разбор не разошёлся с тем, что хуки шлют на самом деле.
+@MainActor
+struct AgentRealPayloadTests {
+    private static let sessionStart = #"{"session_id":"2789c30d-a259-4587-980f-d2149bd19770","transcript_path":"/Users/x/.claude/projects/-private-tmp-oe-live/2789c30d.jsonl","cwd":"/private/tmp/oe-live","hook_event_name":"SessionStart","source":"startup"}"#
+    private static let prompt = #"{"session_id":"2789c30d-a259-4587-980f-d2149bd19770","cwd":"/private/tmp/oe-live","permission_mode":"default","prompt_id":"p1","prompt":"Run echo hi","hook_event_name":"UserPromptSubmit"}"#
+    private static let preTool = #"{"session_id":"2789c30d-a259-4587-980f-d2149bd19770","cwd":"/private/tmp/oe-live","permission_mode":"auto","effort":{"level":"medium"},"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo hi","description":"x"},"tool_use_id":"toolu_01"}"#
+    private static let sessionEnd = #"{"session_id":"2789c30d-a259-4587-980f-d2149bd19770","cwd":"/private/tmp/oe-live","hook_event_name":"SessionEnd","reason":"other"}"#
+
+    @Test func realPayloadsDriveTheStateMachine() {
+        let store = AgentSessionStore(socketURL: URL(fileURLWithPath: "/tmp/odinseye-test-unused.sock"))
+        store.receive(Data(Self.sessionStart.utf8))
+        #expect(store.sessions.first?.state == .idle)
+        #expect(store.sessions.first?.project == "oe-live")
+        store.receive(Data(Self.prompt.utf8))
+        #expect(store.sessions.first?.state == .thinking)
+        store.receive(Data(Self.preTool.utf8))
+        #expect(store.sessions.first?.state == .working)
+        #expect(store.sessions.first?.tool == "Bash")
+        store.receive(Data(Self.sessionEnd.utf8))
+        #expect(store.sessions.isEmpty)
+    }
+}

@@ -10,6 +10,7 @@ import Combine
 final class NotchController {
     private var vm: NotchViewModel?
     private var panel: NotchScreenPanel?
+    private var avatarPanel: AvatarPanel?
 
     func install() {
         let vm = NotchViewModel()
@@ -42,6 +43,8 @@ final class NotchController {
         vm?.stop()
         panel?.teardown()
         panel = nil
+        avatarPanel?.teardown()
+        avatarPanel = nil
     }
 
     /// From the menu bar. With no notch on screen — lid closed, external
@@ -72,12 +75,15 @@ final class NotchController {
         }
         panel?.teardown()
         panel = nil
+        avatarPanel?.teardown()
+        avatarPanel = nil
         // The panel is gone; so is anything it was holding open.
         vm.isPinned = false
         if let geometry {
             let next = NotchScreenPanel(geometry: geometry, vm: vm)
             next.state.onChange = { [weak self] in self?.refreshShared() }
             panel = next
+            avatarPanel = AvatarPanel(geometry: geometry, model: vm.avatar)
         }
         refreshShared()
     }
@@ -89,6 +95,7 @@ final class NotchController {
     private func refreshShared() {
         guard let vm else { return }
         let active = panel?.state.isActive ?? false
+        vm.avatar.setCovered(active)
         vm.isTyping = panel?.state.wantsKeyboard ?? false
         guard active != vm.isPanelActive else { return }
         vm.setPanelActive(active)

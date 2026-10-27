@@ -188,6 +188,8 @@ final class NotchViewModel: ObservableObject {
     let snippets: SnippetStore
     /// Сессии Claude Code. Сокет открыт, только пока вкладка на рельсе.
     let agents: AgentSessionStore
+    /// Аватар, который следит за сессиями; рисует его `AvatarPanel`.
+    let avatar: AvatarModel
     /// "Не спать": holds a power assertion while on. Lives here because the
     /// panel and the menu bar both switch it.
     let keepAwake = KeepAwake()
@@ -203,7 +205,9 @@ final class NotchViewModel: ObservableObject {
         self.screenshotFolder = ScreenshotFolderWatcher()
         self.currencies = CurrencyStore()
         self.snippets = SnippetStore()
-        self.agents = AgentSessionStore()
+        let agents = AgentSessionStore()
+        self.agents = agents
+        self.avatar = AvatarModel(store: agents)
 
         // The panel header reads through to the stores — counters, the source
         // name, the equalizer. Nested ObservableObjects do not propagate on

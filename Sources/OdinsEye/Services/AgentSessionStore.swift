@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 /// Сессия Claude Code, как её видно в чёлке.
@@ -59,6 +60,10 @@ final class AgentSessionStore: ObservableObject {
     static let holdLimit: TimeInterval = 110
     /// Сессия, от которой нет событий дольше, считается брошенной.
     static let staleAfter: TimeInterval = 6 * 3600
+
+    /// Имя каждого принятого события — для того, кто хочет отреагировать на
+    /// него сразу, а не на итоговое состояние (аватар).
+    let events = PassthroughSubject<String, Never>()
 
     private let server: AgentSocketServer
     private var settleTask: Task<Void, Never>?
@@ -187,6 +192,7 @@ final class AgentSessionStore: ObservableObject {
 
         sessions.sort { $0.updatedAt > $1.updatedAt }
         if state == .finished { scheduleSettle(from: now) }
+        events.send(event.name)
     }
 
     /// «Закончил» старше пяти секунд становится «свободен».

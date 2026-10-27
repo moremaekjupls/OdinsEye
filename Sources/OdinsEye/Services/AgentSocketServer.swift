@@ -92,6 +92,7 @@ final class AgentSocketServer: @unchecked Sendable {
             descriptor = fd
             let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
             source.setEventHandler { [fd, weak self] in
+                let server = self
                 while true {
                     let client = accept(fd, nil, nil)
                     if client < 0 { break }
@@ -99,7 +100,7 @@ final class AgentSocketServer: @unchecked Sendable {
                         guard let data = Self.readMessage(from: client) else { close(client); return }
                         if expectsReply(data) {
                             let reply = AgentReply(fd: client)
-                            self?.keep(reply)
+                            server?.keep(reply)
                             onMessage(data, reply)
                         } else {
                             // Сначала передать, потом закрыть: хук уходит в

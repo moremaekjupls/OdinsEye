@@ -59,8 +59,10 @@ struct AvatarTests {
     }
 
     @Test func anOpenPanelCoversTheAvatar() throws {
+        let dir = try folder()
+        try writePNG(dir.appendingPathComponent("idle.png"))
         let store = store()
-        let model = AvatarModel(store: store, skins: AvatarSkins(folder: try folder()))
+        let model = AvatarModel(store: store, skins: AvatarSkins(folder: dir))
         store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
         #expect(model.isShown)
         model.setCovered(true)
@@ -119,5 +121,40 @@ struct AvatarTests {
         for name in ["idle.png", "thinking.png", "working.png", "waiting.png", "done.png"] {
             #expect(text.contains(name))
         }
+    }
+
+    // MARK: - Без своей картинки аватара нет
+
+    @Test func withoutAnyPictureNothingIsShown() throws {
+        let store = store()
+        let model = AvatarModel(store: store, skins: AvatarSkins(folder: try folder()))
+        store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
+        #expect(model.isPresent)
+        #expect(model.skin == nil)
+        #expect(model.isShown == false)
+    }
+
+    @Test func oneIdlePictureServesEveryMood() throws {
+        let dir = try folder()
+        try writePNG(dir.appendingPathComponent("idle.png"))
+        let store = store()
+        let model = AvatarModel(store: store, skins: AvatarSkins(folder: dir))
+        store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
+        for name in ["UserPromptSubmit", "PreToolUse", "Notification", "Stop"] {
+            store.apply(AgentEvent(name: name, sessionID: "a", cwd: nil, toolName: nil))
+            #expect(model.skin != nil, "no picture after \(name)")
+            #expect(model.isShown)
+        }
+    }
+
+    @Test func aPictureDroppedInLaterAppearsOnTheNextMoodChange() throws {
+        let dir = try folder()
+        let store = store()
+        let model = AvatarModel(store: store, skins: AvatarSkins(folder: dir))
+        store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
+        #expect(model.isShown == false)
+        try writePNG(dir.appendingPathComponent("idle.png"))
+        store.apply(AgentEvent(name: "PreToolUse", sessionID: "a", cwd: nil, toolName: "Bash"))
+        #expect(model.isShown)
     }
 }

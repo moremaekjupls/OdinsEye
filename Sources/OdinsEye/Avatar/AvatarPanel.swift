@@ -2,6 +2,24 @@ import AppKit
 import Combine
 import SwiftUI
 
+/// Лицо аватара: картинка пользователя с движениями из модели.
+struct AvatarFace: View {
+    @ObservedObject var model: AvatarModel
+
+    var body: some View {
+        if let skin = model.skin {
+            Image(nsImage: skin)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .opacity(model.dim)
+                .rotationEffect(.degrees(model.tilt))
+                .offset(y: model.lift)
+                .scaleEffect(model.scale)
+        }
+    }
+}
+
 /// Выступ слева от чёлки, в котором живёт аватар: продолжение чёлки, чёрное,
 /// с закруглением снизу слева.
 private struct AvatarEar: View {
@@ -33,7 +51,7 @@ private struct AvatarEar: View {
 /// бы порядок окон. Без сессий оно пустое и ничего не рисует.
 @MainActor
 final class AvatarPanel {
-    /// Ширина выступа. Глаз 24 пт плюс поля.
+    /// Ширина выступа: картинка 26 пт плюс поля.
     static let earWidth: CGFloat = 36
 
     private var panel: NotchPanel?

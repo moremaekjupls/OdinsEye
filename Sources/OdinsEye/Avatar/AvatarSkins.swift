@@ -1,9 +1,9 @@
 import AppKit
 
-/// Свои картинки вместо нарисованного глаза: файлы в
+/// Свои картинки аватара: файлы в
 /// `~/Library/Application Support/OdinsEye/avatar/`, по одному на настроение.
-/// Нет файла — рисуется глаз. Картинка подхватывается при следующей смене
-/// настроения, перезапуск не нужен.
+/// Нет файла для настроения — берётся `idle.png`; нет и его — аватара нет.
+/// Картинка подхватывается при следующей смене настроения, перезапуск не нужен.
 @MainActor
 final class AvatarSkins {
     /// Имя файла без расширения для каждого настроения.
@@ -23,7 +23,7 @@ final class AvatarSkins {
     /// `folder` задаётся в тестах; по умолчанию — папка приложения.
     init(folder: URL? = nil) {
         self.folder = folder ?? Support.directory("avatar")
-        writeReadmeIfMissing()
+        writeReadme()
     }
 
     func image(for mood: AvatarModel.Mood) -> NSImage? {
@@ -39,20 +39,23 @@ final class AvatarSkins {
         return image
     }
 
-    private func writeReadmeIfMissing() {
+    /// Перезаписывается при каждом запуске: это наш файл, и список имён в нём
+    /// должен совпадать с кодом.
+    private func writeReadme() {
         let readme = folder.appendingPathComponent("README.txt")
-        guard !FileManager.default.fileExists(atPath: readme.path) else { return }
         let text = """
         Свой аватар для Odin's Eye.
 
-        Положите сюда PNG с прозрачным фоном (лучше квадрат 128x128 или больше):
-          idle.png      сессии есть, но агент ничего не делает
+        Положите сюда PNG с прозрачным фоном (квадрат 256x256 или больше):
+          idle.png      обязательный: сессии есть, агент ничего не делает.
+                        Без него аватара нет вообще.
           thinking.png  Claude думает
           working.png   Claude работает с инструментами
           waiting.png   Claude ждёт вашего решения
-          done.png      Claude закончил (горит пять секунд)
+          done.png      Claude закончил (горит пять секунды)
 
-        Не обязательно класть все пять: для настроения без файла рисуется глаз.
+        Нет файла для настроения: берётся idle.png. Одной idle.png хватает,
+        настроения тогда различаются движением: покачивание, прыжки, пульс.
         Картинка подхватывается при следующей смене настроения.
         """
         try? text.write(to: readme, atomically: true, encoding: .utf8)

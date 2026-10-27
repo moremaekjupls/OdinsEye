@@ -2,23 +2,23 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Настроение аватара и его сценарий.
+/// Настроение аватара и его движения.
 ///
-/// Анимация идёт только по событиям: смена настроения, вспышка взгляда на
-/// каждое событие хука. Между ними ничего не анимируется, SwiftUI не
-/// перерисовывает, процессор не занят. Это сознательное отличие от
-/// маскота, который крутится на 60 кадрах всё время.
+/// Аватар это картинка пользователя (`AvatarSkins`); модель оживляет её:
+/// качание, подпрыгивание, пульс. Анимация идёт только по событиям: смена
+/// настроения и вспышка на каждое событие хука. Между ними ничего не
+/// анимируется, SwiftUI не перерисовывает, процессор не занят.
 @MainActor
 final class AvatarModel: ObservableObject {
     enum Mood: Equatable, Sendable {
         case asleep, thinking, working, waiting, done
     }
 
-    // Что рисует глаз. Меняются внутри `withAnimation`.
-    @Published private(set) var look: CGSize = .zero
-    @Published private(set) var openness: Double = 0.22
-    @Published private(set) var pupil: Double = 1
+    // Что делает картинка. Меняются внутри `withAnimation`.
     @Published private(set) var scale: Double = 1
+    @Published private(set) var tilt: Double = 0
+    @Published private(set) var lift: Double = 0
+    @Published private(set) var dim: Double = 0.6
 
     @Published private(set) var mood: Mood = .asleep
     /// Есть ли вообще за кем следить: без сессий аватара нет.
@@ -27,16 +27,17 @@ final class AvatarModel: ObservableObject {
     @Published private(set) var isCovered = false
     @Published private(set) var skin: NSImage?
 
-    var isShown: Bool { isPresent && !isCovered }
+    /// Без картинки пользователя аватара нет: нарисованного запасного нет.
+    var isShown: Bool { isPresent && !isCovered && skin != nil }
 
     private let skins: AvatarSkins
     private var cancellables = Set<AnyCancellable>()
     private var script: Task<Void, Never>?
-    private var glanceTask: Task<Void, Never>?
-    private var lastGlance = Date.distantPast
-    /// Не чаще одного взгляда за это время: событий может быть много в секунду,
-    /// а каждая анимация стоит перерисовки на 60 кадрах.
-    static let glanceInterval: TimeInterval = 1.5
+    private var bounceTask: Task<Void, Never>?
+    private var lastBounce = Date.distantPast
+    /// Не чаще одного подпрыгивания за это время: событий может быть много в
+    /// секунду, а каждая анимация стоит перерисовки на 60 кадрах.
+    static let bounceInterval: TimeInterval = 1.5
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     init(store: AgentSessionStore, skins: AvatarSkins? = nil) {
@@ -50,7 +51,7 @@ final class AvatarModel: ObservableObject {
             }
             .store(in: &cancellables)
         store.events
-            .sink { [weak self] _ in self?.glance() }
+            .sink { [weak self] _ in self?.bounce() }
             .store(in: &cancellables)
     }
 
@@ -73,30 +74,26 @@ final class AvatarModel: ObservableObject {
         }
     }
 
-    static func tint(for mood: Mood) -> Color {
-        switch mood {
-        case .asleep: return Color(white: 0.55)
-        case .thinking, .working: return .blue
-        case .waiting: return .orange
-        case .done: return .green
-        }
-    }
-
-    var tint: Color { Self.tint(for: mood) }
-
     // MARK: - Сценарий
+
+    /// Картинка настроения; нет своей — берётся `idle`, так что одного файла
+    /// хватает на все.
+    private func resolveSkin(for mood: Mood) -> NSImage? {
+        skins.image(for: mood) ?? skins.image(for: .asleep)
+    }
 
     private func update(sessions: [AgentSession], hasPending: Bool) {
         guard let next = Self.mood(for: sessions, hasPending: hasPending) else {
             isPresent = false
             script?.cancel()
-            glanceTask?.cancel()
+            bounceTask?.cancel()
             return
         }
         isPresent = true
-        guard next != mood || skin == nil && skins.image(for: next) != nil else { return }
+        let image = resolveSkin(for: next)
+        guard next != mood || (skin == nil) != (image == nil) else { return }
         mood = next
-        skin = skins.image(for: next)
+        skin = image
         play(next)
     }
 
@@ -106,63 +103,59 @@ final class AvatarModel: ObservableObject {
 
     private func play(_ mood: Mood) {
         script?.cancel()
-        glanceTask?.cancel()
+        bounceTask?.cancel()
         switch mood {
         case .asleep:
-            go(.easeInOut(duration: 0.6)) { openness = 0.22; look = .zero; pupil = 1; scale = 1 }
+            go(.easeInOut(duration: 0.6)) { scale = 1; tilt = 0; lift = 0; dim = 0.6 }
         case .thinking:
-            go { openness = 0.85; pupil = 1; scale = 1 }
+            go { scale = 1; lift = 0; dim = 1 }
             guard !reduceMotion else { return }
-            // Глаз обводит взглядом комнату и замирает, глядя вверх.
+            // Покачивает головой и замирает.
             script = Task {
-                for x in [-0.8, 0.8, -0.8, 0.0] {
+                for angle in [-8.0, 8.0, -8.0, 0.0] {
                     guard !Task.isCancelled else { return }
-                    go(.easeInOut(duration: 0.45)) { look = CGSize(width: x, height: -0.2) }
+                    go(.easeInOut(duration: 0.45)) { tilt = angle }
                     try? await Task.sleep(for: .milliseconds(500))
                 }
-                guard !Task.isCancelled else { return }
-                go(.easeOut(duration: 0.3)) { look = CGSize(width: 0, height: -0.3) }
             }
         case .working:
-            go { openness = 0.95; pupil = 0.9; look = .zero; scale = 1 }
+            go { scale = 1; tilt = 0; lift = 0; dim = 1 }
         case .waiting:
-            go(.spring(response: 0.3, dampingFraction: 0.7)) { openness = 1; pupil = 1.3; look = .zero }
+            go(.spring(response: 0.3, dampingFraction: 0.7)) { tilt = 0; lift = 0; dim = 1 }
             guard !reduceMotion else { return }
             script = Task {
                 for _ in 0..<3 {
                     guard !Task.isCancelled else { return }
-                    go(.easeOut(duration: 0.25)) { scale = 1.18 }
+                    go(.easeOut(duration: 0.25)) { scale = 1.2 }
                     try? await Task.sleep(for: .milliseconds(300))
                     go(.easeIn(duration: 0.3)) { scale = 1 }
                     try? await Task.sleep(for: .milliseconds(700))
                 }
             }
         case .done:
-            go { scale = 1 }
-            guard !reduceMotion else { go { openness = 0.9; pupil = 1; look = .zero }; return }
-            // Моргнуть и открыться: «закончил».
+            go { tilt = 0; lift = 0; dim = 1 }
+            guard !reduceMotion else { return }
+            // Хлопок: подпрыгнул и встал на место.
             script = Task {
-                go(.easeIn(duration: 0.08)) { openness = 0.05 }
-                try? await Task.sleep(for: .milliseconds(120))
+                go(.easeOut(duration: 0.15)) { scale = 1.3; lift = -3 }
+                try? await Task.sleep(for: .milliseconds(180))
                 guard !Task.isCancelled else { return }
-                go(.easeOut(duration: 0.2)) { openness = 0.9; pupil = 1; look = .zero }
+                go(.spring(response: 0.35, dampingFraction: 0.5)) { scale = 1; lift = 0 }
             }
         }
     }
 
-    /// Короткий взгляд в сторону на каждое событие, пока агент работает.
-    private func glance() {
+    /// Короткий прыжок на каждое событие, пока агент работает.
+    private func bounce() {
         guard mood == .working, !reduceMotion,
-              Date().timeIntervalSince(lastGlance) >= Self.glanceInterval else { return }
-        lastGlance = Date()
-        let directions = [CGSize(width: -0.8, height: 0), CGSize(width: 0.8, height: 0),
-                          CGSize(width: 0, height: -0.7), CGSize(width: 0.5, height: 0.5)]
-        glanceTask?.cancel()
-        glanceTask = Task {
-            go(.easeOut(duration: 0.15)) { look = directions.randomElement() ?? .zero }
-            try? await Task.sleep(for: .milliseconds(350))
+              Date().timeIntervalSince(lastBounce) >= Self.bounceInterval else { return }
+        lastBounce = Date()
+        bounceTask?.cancel()
+        bounceTask = Task {
+            go(.easeOut(duration: 0.12)) { lift = -3; scale = 1.08 }
+            try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            go(.easeInOut(duration: 0.3)) { look = .zero }
+            go(.spring(response: 0.3, dampingFraction: 0.6)) { lift = 0; scale = 1 }
         }
     }
 }

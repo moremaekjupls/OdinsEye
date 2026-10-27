@@ -60,6 +60,11 @@ for lproj in "$ROOT"/Resources/*.lproj; do
     echo "    $(basename "$lproj")"
 done
 
+# Маскот Peeky: тела поз без глаз и rig.json с их местами. Глаза рисует движок.
+if [ -d "$ROOT/Resources/peeky" ]; then
+    cp -R "$ROOT/Resources/peeky" "$APP/Contents/Resources/peeky"
+fi
+
 # Now Playing helper. Built here rather than by SwiftPM because it is not linked
 # into the app: it is loaded into /usr/bin/perl at runtime. See helper.m.
 echo "==> building Now Playing helper"

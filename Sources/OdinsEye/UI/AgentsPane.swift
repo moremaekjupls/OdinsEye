@@ -3,8 +3,21 @@ import SwiftUI
 /// Сессии Claude Code: проект, что делает, как давно.
 struct AgentsPane: View {
     @ObservedObject var agents: AgentSessionStore
+    @ObservedObject var avatar: AvatarModel
 
     var body: some View {
+        HStack(spacing: 12) {
+            // Большой Peeky: в панели он тот же, что в «ухе», с тем же настроением.
+            if let engine = avatar.engine {
+                PeekyView(engine: engine, screenAnchor: avatar.panelAnchor, isRunning: true, bodySide: 96, bottomInset: 6)
+                    .frame(width: 112)
+            }
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let request = agents.pending.first {
             PermissionCard(request: request, more: agents.pending.count - 1) { decision in
                 agents.respond(to: request, decision)
@@ -74,7 +87,7 @@ struct AgentRow: View {
     }
 
     private var detail: String {
-        if session.state == .working, let tool = session.tool { return tool }
+        if session.state == .working, let step = session.step ?? session.tool { return step }
         return session.state.title
     }
 }

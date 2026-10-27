@@ -13,6 +13,8 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     var project: String
     var state: State
     var tool: String?
+    /// Последний шаг агента: «Edit Invoice.swift».
+    var step: String? = nil
     var updatedAt: Date
 }
 
@@ -185,8 +187,12 @@ final class AgentSessionStore: ObservableObject {
         sessions[index].updatedAt = now
         if let cwd = event.cwd { sessions[index].project = Self.project(of: cwd) }
         switch event.name {
-        case "PreToolUse": sessions[index].tool = event.toolName
-        case "UserPromptSubmit", "Stop", "SessionStart": sessions[index].tool = nil
+        case "PreToolUse":
+            sessions[index].tool = event.toolName
+            sessions[index].step = event.step
+        case "UserPromptSubmit", "Stop", "SessionStart":
+            sessions[index].tool = nil
+            sessions[index].step = nil
         default: break
         }
 

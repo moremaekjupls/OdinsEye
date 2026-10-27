@@ -12,13 +12,17 @@ struct AgentEvent: Equatable, Sendable {
     let toolName: String?
     /// Только у `PermissionRequest`.
     let permission: Permission?
+    /// Что делает инструмент, коротко: «Bash npm test», «Edit Invoice.swift».
+    /// Только у `PreToolUse`.
+    let step: String?
 
-    init(name: String, sessionID: String, cwd: String?, toolName: String?, permission: Permission? = nil) {
+    init(name: String, sessionID: String, cwd: String?, toolName: String?, permission: Permission? = nil, step: String? = nil) {
         self.name = name
         self.sessionID = sessionID
         self.cwd = cwd
         self.toolName = toolName
         self.permission = permission
+        self.step = step
     }
 
     /// То, что нужно показать в карточке разрешения.
@@ -61,8 +65,29 @@ struct AgentEvent: Equatable, Sendable {
             sessionID: clip(id),
             cwd: wire.cwd.map(clip),
             toolName: wire.tool_name.map(clip),
-            permission: name == "PermissionRequest" ? permission(in: data) : nil
+            permission: name == "PermissionRequest" ? permission(in: data) : nil,
+            step: name == "PreToolUse" ? step(in: data, tool: wire.tool_name) : nil
         )
+    }
+
+    /// Короткая строка для ленты: инструмент и его цель.
+    private static func step(in data: Data, tool: String?) -> String? {
+        guard let tool, !tool.isEmpty else { return nil }
+        let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let input = root?["tool_input"] as? [String: Any] ?? [:]
+        func name(_ path: String) -> String { (path as NSString).lastPathComponent }
+        let target: String?
+        switch tool {
+        case "Bash": target = (input["command"] as? String)?.split(separator: "\n").first.map(String.init)
+        case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit":
+            target = (input["file_path"] as? String ?? input["notebook_path"] as? String).map(name)
+        case "Grep", "Glob": target = input["pattern"] as? String
+        case "WebFetch": target = (input["url"] as? String).flatMap { URL(string: $0)?.host }
+        case "WebSearch": target = input["query"] as? String
+        default: target = nil
+        }
+        let text = [tool, target?.trimmingCharacters(in: .whitespaces)].compactMap { $0 }.joined(separator: " ")
+        return text.count > 60 ? String(text.prefix(59)) + "…" : text
     }
 
     /// Разбор полезной нагрузки `PermissionRequest`: имя инструмента, что

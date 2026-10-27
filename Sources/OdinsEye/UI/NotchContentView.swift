@@ -172,7 +172,7 @@ struct NotchContentView: View {
         case .media:
             MediaPane(media: vm.media)
         case .agents:
-            AgentsPane(agents: vm.agents)
+            AgentsPane(agents: vm.agents, avatar: vm.avatar)
         case .shelf:
             ShelfPane(shelf: vm.shelf, isTargeted: panel.isDropTargeted)
         case .clipboard:

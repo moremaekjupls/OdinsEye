@@ -23,7 +23,7 @@ struct AgentSessionStoreTests {
     @Test func parsesAHookPayload() {
         let json = #"{"hook_event_name":"PreToolUse","session_id":"abc","cwd":"/a/b","tool_name":"Bash","extra":{"x":1}}"#
         let event = AgentEvent.parse(Data(json.utf8))
-        #expect(event == AgentEvent(name: "PreToolUse", sessionID: "abc", cwd: "/a/b", toolName: "Bash"))
+        #expect(event == AgentEvent(name: "PreToolUse", sessionID: "abc", cwd: "/a/b", toolName: "Bash", step: "Bash"))
     }
 
     @Test func rejectsGarbageAndIncompletePayloads() {

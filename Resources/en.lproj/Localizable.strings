@@ -103,3 +103,9 @@
 "now" = "now";
 "%d min" = "%d min";
 "%d h" = "%d h";
+
+/* Permission requests */
+"Deny" = "Deny";
+"Allow" = "Allow";
+"Always this session" = "Always this session";
+"Too long to review here. Answer in the terminal." = "Too long to review here. Answer in the terminal.";

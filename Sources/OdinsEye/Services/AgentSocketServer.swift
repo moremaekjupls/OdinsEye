@@ -1,5 +1,59 @@
 import Foundation
 
+/// Ответ, который сервер может дать хуку: соединение остаётся открытым, пока
+/// кто-то не решит. Закрывается ровно один раз — ответом, пустым закрытием или
+/// по таймеру; всё остальное после этого ничего не делает.
+final class AgentReply: @unchecked Sendable {
+    private let lock = NSLock()
+    private let fd: Int32
+    private var finished = false
+    private var handlers: [@Sendable () -> Void] = []
+
+    init(fd: Int32) {
+        self.fd = fd
+        var on: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+    }
+
+    /// Вызывается один раз, когда соединение закрыто — любым способом. Если оно
+    /// уже закрыто, вызывается сразу.
+    func whenFinished(_ handler: @escaping @Sendable () -> Void) {
+        lock.lock()
+        if finished { lock.unlock(); handler(); return }
+        handlers.append(handler)
+        lock.unlock()
+    }
+
+    /// Закрыть, если ещё не закрыто, через `seconds`.
+    func expire(after seconds: TimeInterval) {
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + seconds) { [self] in send(nil) }
+    }
+
+    /// Записать ответ (или ничего) и закрыть. `nc` у хука печатает полученное
+    /// в stdout, а пустое закрытие для Claude Code значит «решения нет».
+    func send(_ data: Data?) {
+        lock.lock()
+        if finished { lock.unlock(); return }
+        finished = true
+        let toRun = handlers
+        handlers = []
+        lock.unlock()
+
+        if let data {
+            data.withUnsafeBytes { raw in
+                var offset = 0
+                while offset < raw.count {
+                    let n = write(fd, raw.baseAddress! + offset, raw.count - offset)
+                    if n <= 0 { break }
+                    offset += n
+                }
+            }
+        }
+        close(fd)
+        toRun.forEach { $0() }
+    }
+}
+
 /// Unix-сокет, в который хуки Claude Code пишут JSON.
 ///
 /// Слушает, а не опрашивает: в простое процесс спит в ядре. Одно соединение —
@@ -8,6 +62,12 @@ import Foundation
 /// хуки Claude Code синхронные, то есть каждый вызов инструмента встал бы
 /// на секунду. С закрытием `nc` уходит за ~10 мс.
 ///
+/// Исключение — сообщения, на которые ждут ответ (`expectsReply`): запрос
+/// разрешения. Для них соединение отдаётся наружу как `AgentReply` и живёт,
+/// пока человек не нажмёт кнопку. `nc` после конца ввода закрывает свою
+/// сторону записи, но продолжает ждать и печатает всё, что пришло, — поэтому
+/// конец потока на стороне сервера не означает, что хук умер.
+///
 /// Права: каталог 0700, сокет 0600 — писать может только тот же пользователь.
 final class AgentSocketServer: @unchecked Sendable {
     private let path: String
@@ -15,22 +75,39 @@ final class AgentSocketServer: @unchecked Sendable {
     private var source: DispatchSourceRead?
     private var descriptor: Int32 = -1
 
+    private let heldLock = NSLock()
+    private var held: [ObjectIdentifier: AgentReply] = [:]
+
     init(path: String) { self.path = path }
 
-    /// `onMessage` вызывается с одним сообщением, на фоновой очереди.
-    func start(onMessage: @escaping @Sendable (Data) -> Void) {
+    /// `onMessage` вызывается с одним сообщением, на фоновой очереди. Ответ
+    /// непустой только для сообщений, на которые `expectsReply` сказал «да».
+    func start(
+        expectsReply: @escaping @Sendable (Data) -> Bool = { _ in false },
+        onMessage: @escaping @Sendable (Data, AgentReply?) -> Void
+    ) {
         queue.sync {
             guard source == nil else { return }
             guard let fd = Self.listen(on: path) else { return }
             descriptor = fd
             let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
-            source.setEventHandler { [fd] in
+            source.setEventHandler { [fd, weak self] in
                 while true {
                     let client = accept(fd, nil, nil)
                     if client < 0 { break }
                     DispatchQueue.global(qos: .utility).async {
-                        if let data = Self.readMessage(from: client) { onMessage(data) }
-                        close(client)
+                        guard let data = Self.readMessage(from: client) else { close(client); return }
+                        if expectsReply(data) {
+                            let reply = AgentReply(fd: client)
+                            self?.keep(reply)
+                            onMessage(data, reply)
+                        } else {
+                            // Сначала передать, потом закрыть: хук уходит в
+                            // момент закрытия, и следующий его собрат не
+                            // должен обогнать этот в очереди главного потока.
+                            onMessage(data, nil)
+                            close(client)
+                        }
                     }
                 }
             }
@@ -46,6 +123,20 @@ final class AgentSocketServer: @unchecked Sendable {
             source = nil
             descriptor = -1
             unlink(path)
+        }
+        // Хук, ждущий ответа, не должен висеть из-за выключенной вкладки.
+        heldLock.lock()
+        let open = Array(held.values)
+        held = [:]
+        heldLock.unlock()
+        open.forEach { $0.send(nil) }
+    }
+
+    private func keep(_ reply: AgentReply) {
+        let id = ObjectIdentifier(reply)
+        heldLock.lock(); held[id] = reply; heldLock.unlock()
+        reply.whenFinished { [weak self] in
+            self?.heldLock.lock(); self?.held[id] = nil; self?.heldLock.unlock()
         }
     }
 

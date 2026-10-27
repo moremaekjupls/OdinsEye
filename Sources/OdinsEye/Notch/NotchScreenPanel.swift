@@ -177,6 +177,28 @@ final class NotchScreenPanel {
             }
             .store(in: &cancellables)
 
+        // Запрос разрешения раскрывает панель сам и держит её, пока он не
+        // решён. Клавиатуру не берёт: человек может печатать в терминале, и
+        // чужая вставка в эту секунду не должна уйти в панель.
+        vm.agents.$pending
+            .map { !$0.isEmpty }
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] has in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    if has {
+                        if self.vm.isVisible(.agents) { self.vm.tab = .agents }
+                        self.pointer.setInside(true)
+                        self.setOpen(true)
+                        NSSound(named: "Tink")?.play()
+                    } else {
+                        self.scheduleCollapseIfPointerAway()
+                    }
+                }
+            }
+            .store(in: &cancellables)
+
         // Pinning takes the keyboard, so Esc can let the panel go; unpinning
         // gives it back where no field needs it and hands the decision back to
         // the pointer. The value comes from the publisher: it fires before the
@@ -230,7 +252,9 @@ final class NotchScreenPanel {
     // MARK: - Open / close
 
     /// Whether the pin is holding the panel open.
-    private var holdsOpen: Bool { vm.isPinned }
+    /// Закреплена вручную или ждёт ответа на запрос разрешения: пока он висит,
+    /// Claude Code стоит, и панель не должна уйти из-под курсора.
+    private var holdsOpen: Bool { vm.isPinned || vm.agents.hasPending }
 
     /// Hands the keyboard to the panel, or gives it back.
     private func setKeyboard(_ wants: Bool) {

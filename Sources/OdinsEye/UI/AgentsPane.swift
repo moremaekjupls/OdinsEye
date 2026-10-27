@@ -5,7 +5,12 @@ struct AgentsPane: View {
     @ObservedObject var agents: AgentSessionStore
 
     var body: some View {
-        if agents.sessions.isEmpty {
+        if let request = agents.pending.first {
+            PermissionCard(request: request, more: agents.pending.count - 1) { decision in
+                agents.respond(to: request, decision)
+            }
+            .id(request.id)
+        } else if agents.sessions.isEmpty {
             VStack(spacing: 6) {
                 Image(systemName: "terminal")
                     .font(.system(size: 22, weight: .light))
@@ -92,5 +97,72 @@ extension AgentSession.State {
         case .thinking, .working: return .blue
         case .waiting: return .orange
         }
+    }
+}
+
+/// Запрос разрешения: что просят, и три кнопки. Одна карточка за раз, чтобы
+/// влезть в панель; остальные ждут за ней.
+struct PermissionCard: View {
+    let request: PendingPermission
+    let more: Int
+    let answer: (PermissionDecision) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle().fill(Color.orange).frame(width: 7, height: 7)
+                Text(request.tool)
+                    .font(.panelBodyMedium)
+                    .foregroundStyle(Theme.primary)
+                Text(request.project)
+                    .font(.panelCaption)
+                    .foregroundStyle(Theme.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                if more > 0 {
+                    Text("+\(more)")
+                        .font(.panelCaptionMedium.monospacedDigit())
+                        .foregroundStyle(Theme.tertiary)
+                }
+            }
+
+            // Команда целиком и моноширинным: от того, что видно, зависит,
+            // что человек разрешает.
+            ScrollView(showsIndicators: true) {
+                Text(request.detail)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Theme.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+            }
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.surface))
+            .frame(maxHeight: .infinity)
+
+            if request.isComplete {
+                HStack(spacing: 8) {
+                    Button("Deny") { answer(.deny) }
+                        .buttonStyle(.plate)
+                    Spacer(minLength: 6)
+                    if request.canAlways {
+                        Button("Always this session") { answer(.allowForSession) }
+                            .buttonStyle(.plate)
+                    }
+                    Button("Allow") { answer(.allow) }
+                        .buttonStyle(.plate)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Text("Too long to review here. Answer in the terminal.")
+                        .font(.panelCaption)
+                        .foregroundStyle(Theme.secondary)
+                    Spacer(minLength: 6)
+                    Button("Deny") { answer(.deny) }
+                        .buttonStyle(.plate)
+                }
+            }
+        }
+        .padding(.top, 2)
+        .padding(.bottom, 2)
     }
 }

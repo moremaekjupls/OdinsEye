@@ -34,7 +34,7 @@ struct AgentsPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 3) {
+                LazyVStack(spacing: 5) {
                     ForEach(agents.sessions) { session in
                         AgentRow(session: session)
                     }
@@ -50,33 +50,76 @@ struct AgentRow: View {
     let session: AgentSession
 
     var body: some View {
-        HStack(spacing: 9) {
-            Circle()
-                .fill(session.state.color)
-                .frame(width: 7, height: 7)
-                .frame(width: 16)
-            Text(session.project)
-                .font(.panelBodyMedium)
-                .foregroundStyle(Theme.primary)
-                .lineLimit(1)
-            Text(detail)
-                .font(.panelCaption)
-                .foregroundStyle(Theme.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            // Раз в минуту, а не каждую секунду, как `.relative`: панель
-            // открыта подолгу, и тикающие секунды — это перерисовка впустую.
-            TimelineView(.everyMinute) { context in
-                Text(Self.ago(session.updatedAt, now: context.date))
-                    .font(.panelCaption.monospacedDigit())
-                    .foregroundStyle(Theme.tertiary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 9) {
+                Circle()
+                    .fill(session.state.color)
+                    .frame(width: 7, height: 7)
+                    .frame(width: 16)
+                Text(session.project)
+                    .font(.panelBodyMedium)
+                    .foregroundStyle(Theme.primary)
+                    .lineLimit(1)
+                Text(detail)
+                    .font(.panelCaption)
+                    .foregroundStyle(Theme.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                // Раз в минуту, а не каждую секунду, как `.relative`: панель
+                // открыта подолгу, и тикающие секунды — это перерисовка впустую.
+                TimelineView(.everyMinute) { context in
+                    Text(Self.ago(session.updatedAt, now: context.date))
+                        .font(.panelCaption.monospacedDigit())
+                        .foregroundStyle(Theme.tertiary)
+                }
+            }
+
+            if let prompt = session.prompt {
+                line("person.fill", prompt, color: Theme.secondary)
+            }
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                line(index == steps.count - 1 && session.state == .working ? "arrow.right" : "checkmark",
+                     step, color: Theme.tertiary, mono: true)
+            }
+            if !session.files.isEmpty {
+                line("doc.badge.ellipsis", filesText, color: Theme.tertiary)
+            }
+            if let reply = session.reply, session.state != .thinking, session.state != .working {
+                Text(reply)
+                    .font(.panelCaption)
+                    .foregroundStyle(Theme.primary)
+                    .lineLimit(3)
+                    .padding(.leading, 25)
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.surface)
         )
+    }
+
+    private func line(_ symbol: String, _ text: String, color: Color, mono: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 8))
+                .frame(width: 12)
+            Text(text)
+                .font(mono ? .system(size: 10.5, design: .monospaced) : .panelCaption)
+                .lineLimit(1)
+        }
+        .foregroundStyle(color)
+        .padding(.leading, 13)
+    }
+
+    /// Ход короче трёх шагов показывает всё, длиннее — три последних.
+    private var steps: [String] { Array(session.steps.suffix(3)) }
+
+    private var filesText: String {
+        let shown = session.files.prefix(3).joined(separator: ", ")
+        let rest = session.files.count - 3
+        return rest > 0 ? "\(shown) +\(rest)" : shown
     }
 
     static func ago(_ date: Date, now: Date) -> String {

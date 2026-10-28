@@ -15,14 +15,24 @@ struct AgentEvent: Equatable, Sendable {
     /// Что делает инструмент, коротко: «Bash npm test», «Edit Invoice.swift».
     /// Только у `PreToolUse`.
     let step: String?
+    /// Что человек спросил. Только у `UserPromptSubmit`.
+    let prompt: String?
+    /// Последний ответ агента. Только у `Stop`.
+    let reply: String?
+    /// Имя файла, который правят: `Edit`, `Write`, `MultiEdit`, `NotebookEdit`.
+    let file: String?
 
-    init(name: String, sessionID: String, cwd: String?, toolName: String?, permission: Permission? = nil, step: String? = nil) {
+    init(name: String, sessionID: String, cwd: String?, toolName: String?, permission: Permission? = nil, step: String? = nil,
+         prompt: String? = nil, reply: String? = nil, file: String? = nil) {
         self.name = name
         self.sessionID = sessionID
         self.cwd = cwd
         self.toolName = toolName
         self.permission = permission
         self.step = step
+        self.prompt = prompt
+        self.reply = reply
+        self.file = file
     }
 
     /// То, что нужно показать в карточке разрешения.
@@ -51,6 +61,8 @@ struct AgentEvent: Equatable, Sendable {
         let session_id: String?
         let cwd: String?
         let tool_name: String?
+        let prompt: String?
+        let last_assistant_message: String?
     }
 
     /// `nil`, если это не JSON хука или в нём нет имени события и сессии.
@@ -66,8 +78,32 @@ struct AgentEvent: Equatable, Sendable {
             cwd: wire.cwd.map(clip),
             toolName: wire.tool_name.map(clip),
             permission: name == "PermissionRequest" ? permission(in: data) : nil,
-            step: name == "PreToolUse" ? step(in: data, tool: wire.tool_name) : nil
+            step: name == "PreToolUse" ? step(in: data, tool: wire.tool_name) : nil,
+            prompt: name == "UserPromptSubmit" ? wire.prompt.flatMap(oneLine) : nil,
+            reply: name == "Stop" ? wire.last_assistant_message.flatMap(oneLine) : nil,
+            file: name == "PreToolUse" ? editedFile(in: data, tool: wire.tool_name) : nil
         )
+    }
+
+    /// Сколько знаков ответа и вопроса доходит до панели.
+    static let maxMessage = 400
+
+    /// Текст в одну строку с пробелами по краям убранными, обрезанный.
+    private static func oneLine(_ text: String) -> String? {
+        let flat = text.split(whereSeparator: \.isNewline).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !flat.isEmpty else { return nil }
+        return flat.count > maxMessage ? String(flat.prefix(maxMessage - 1)) + "…" : flat
+    }
+
+    private static func editedFile(in data: Data, tool: String?) -> String? {
+        guard let tool, ["Edit", "Write", "MultiEdit", "NotebookEdit"].contains(tool),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let input = root["tool_input"] as? [String: Any],
+              let path = input["file_path"] as? String ?? input["notebook_path"] as? String
+        else { return nil }
+        let name = (path as NSString).lastPathComponent
+        return name.isEmpty ? nil : clip(name)
     }
 
     /// Короткая строка для ленты: инструмент и его цель.

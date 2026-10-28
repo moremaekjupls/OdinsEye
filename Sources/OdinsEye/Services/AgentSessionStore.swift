@@ -15,6 +15,14 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     var tool: String?
     /// Последний шаг агента: «Edit Invoice.swift».
     var step: String? = nil
+    /// Что человек спросил в этом ходе.
+    var prompt: String? = nil
+    /// Что агент ответил, когда закончил.
+    var reply: String? = nil
+    /// Последние шаги хода, старые первыми.
+    var steps: [String] = []
+    /// Файлы, которые правили в этом ходе, без повторов.
+    var files: [String] = []
     var updatedAt: Date
 }
 
@@ -62,6 +70,9 @@ final class AgentSessionStore: ObservableObject {
     static let holdLimit: TimeInterval = 110
     /// Сессия, от которой нет событий дольше, считается брошенной.
     static let staleAfter: TimeInterval = 6 * 3600
+    /// Сколько последних шагов и файлов хода помнит сессия.
+    static let maxSteps = 4
+    static let maxFiles = 12
 
     /// Имя каждого принятого события — для того, кто хочет отреагировать на
     /// него сразу, а не на итоговое состояние (аватар).
@@ -190,7 +201,26 @@ final class AgentSessionStore: ObservableObject {
         case "PreToolUse":
             sessions[index].tool = event.toolName
             sessions[index].step = event.step
-        case "UserPromptSubmit", "Stop", "SessionStart":
+            if let step = event.step {
+                sessions[index].steps.append(step)
+                if sessions[index].steps.count > Self.maxSteps { sessions[index].steps.removeFirst() }
+            }
+            if let file = event.file, !sessions[index].files.contains(file), sessions[index].files.count < Self.maxFiles {
+                sessions[index].files.append(file)
+            }
+        case "UserPromptSubmit":
+            // Новый ход: прошлый ответ, шаги и файлы больше не про него.
+            sessions[index].tool = nil
+            sessions[index].step = nil
+            sessions[index].prompt = event.prompt
+            sessions[index].reply = nil
+            sessions[index].steps = []
+            sessions[index].files = []
+        case "Stop":
+            sessions[index].tool = nil
+            sessions[index].step = nil
+            sessions[index].reply = event.reply
+        case "SessionStart":
             sessions[index].tool = nil
             sessions[index].step = nil
         default: break

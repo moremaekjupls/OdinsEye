@@ -27,8 +27,6 @@ final class ConfigStore: ObservableObject {
         var saveClipboardImages = true
         /// Тихие звуки Peeky (приветствие, запрос, «готово»).
         var sounds = true
-        /// Публичные репозитории GitHub для вкладки GitHub, `owner/name`.
-        var githubRepos = ["moremaekjupls/OdinsEye"]
         var privacy: [String] = []
         var hiddenTabs: [String] = []
         var keepAwake = KeepAwakeConfig()
@@ -46,7 +44,6 @@ final class ConfigStore: ObservableObject {
             let d = File()
             saveClipboardImages = try c.decodeIfPresent(Bool.self, forKey: .saveClipboardImages) ?? d.saveClipboardImages
             sounds = try c.decodeIfPresent(Bool.self, forKey: .sounds) ?? d.sounds
-            githubRepos = try c.decodeIfPresent([String].self, forKey: .githubRepos) ?? d.githubRepos
             privacy = try c.decodeIfPresent([String].self, forKey: .privacy) ?? d.privacy
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
@@ -98,11 +95,6 @@ final class ConfigStore: ObservableObject {
         set { value.sounds = newValue; persist() }
     }
 
-    /// Репозитории вкладки GitHub. Только публичные: токена в приложении нет.
-    var githubRepos: [String] {
-        get { value.githubRepos }
-        set { value.githubRepos = newValue; persist() }
-    }
 
     /// Raw `PrivacyMode.Section` values. Kept as strings here rather than that
     /// type so this store does not need to know about it — the same reason

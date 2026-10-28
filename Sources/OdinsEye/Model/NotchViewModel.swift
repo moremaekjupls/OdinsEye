@@ -4,14 +4,13 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case media, agents, github, shelf, clipboard, snippets, currency, settings
+        case media, agents, shelf, clipboard, snippets, currency, settings
         var id: String { rawValue }
 
         var symbol: String {
             switch self {
             case .media: return "music.note"
             case .agents: return "terminal.fill"
-            case .github: return "arrow.triangle.pull"
             case .shelf: return "tray.full.fill"
             case .clipboard: return "list.clipboard.fill"
             case .snippets: return "pin.fill"
@@ -24,7 +23,6 @@ final class NotchViewModel: ObservableObject {
             switch self {
             case .media: return localized("Music")
             case .agents: return localized("Sessions")
-            case .github: return "GitHub"
             case .shelf: return localized("Shelf")
             case .clipboard: return localized("Clipboard")
             case .snippets: return localized("Snippets")
@@ -47,7 +45,7 @@ final class NotchViewModel: ObservableObject {
         /// last. The second column on the right used to exist for the notes;
         /// with them gone it holds the panel's own switches instead — the pin
         /// and keep-awake, see `PanelControls`.
-        static let rail: [Tab] = [.media, .agents, .github, .shelf, .clipboard, .snippets, .currency, .settings]
+        static let rail: [Tab] = [.media, .agents, .shelf, .clipboard, .snippets, .currency, .settings]
     }
 
     /// What every screen's panel adds up to, kept by `NotchController`: this
@@ -121,8 +119,6 @@ final class NotchViewModel: ObservableObject {
             currencies.start()
         case .agents:
             agents.start()
-        case .github:
-            github.start()
         case .snippets, .settings:
             break
         }
@@ -135,7 +131,6 @@ final class NotchViewModel: ObservableObject {
         case .shelf: screenshotFolder.stop()
         case .currency: currencies.stop()
         case .agents: agents.stop()
-        case .github: github.stop()
         case .snippets, .settings: break
         }
     }
@@ -170,7 +165,6 @@ final class NotchViewModel: ObservableObject {
             // Rates update on a timer already; opening the tab asks once more
             // so a stale cache from the last few hours does not sit there.
             if tab == .currency { currencies.refreshIfNeeded() }
-            if tab == .github { github.refreshIfNeeded() }
             // Leaving the tab that types gives the keyboard straight back —
             // done per screen, where the claim lives, in `NotchScreenPanel`.
         }
@@ -194,9 +188,6 @@ final class NotchViewModel: ObservableObject {
     let snippets: SnippetStore
     /// Сессии Claude Code. Сокет открыт, только пока вкладка на рельсе.
     let agents: AgentSessionStore
-    /// Публичные репозитории GitHub: PR, ревью, CI. Опрос идёт, пока вкладка
-    /// на рельсе, и редко: квота 60 запросов в час.
-    let github: GitHubStore
     /// Аватар, который следит за сессиями; рисует его `AvatarPanel`.
     let avatar: AvatarModel
     /// "Не спать": holds a power assertion while on. Lives here because the
@@ -217,7 +208,6 @@ final class NotchViewModel: ObservableObject {
         let agents = AgentSessionStore()
         self.agents = agents
         self.avatar = AvatarModel(store: agents)
-        self.github = GitHubStore()
 
         // The panel header reads through to the stores — counters, the source
         // name, the equalizer. Nested ObservableObjects do not propagate on
@@ -244,7 +234,6 @@ final class NotchViewModel: ObservableObject {
             shelf.objectWillChange,
             clipboard.objectWillChange,
             agents.objectWillChange,
-            github.objectWillChange,
         ] {
             child
                 .sink { [weak self] _ in

@@ -21,9 +21,14 @@ struct AgentEvent: Equatable, Sendable {
     let reply: String?
     /// Имя файла, который правят: `Edit`, `Write`, `MultiEdit`, `NotebookEdit`.
     let file: String?
+    /// Процесс Claude Code и его терминал (`ttys003`): их хук подставляет
+    /// сам. Без них сессия видна, но в её окно не перейти.
+    let pid: Int?
+    let tty: String?
 
     init(name: String, sessionID: String, cwd: String?, toolName: String?, permission: Permission? = nil, step: String? = nil,
-         prompt: String? = nil, reply: String? = nil, file: String? = nil) {
+         prompt: String? = nil, reply: String? = nil, file: String? = nil,
+         pid: Int? = nil, tty: String? = nil) {
         self.name = name
         self.sessionID = sessionID
         self.cwd = cwd
@@ -33,6 +38,8 @@ struct AgentEvent: Equatable, Sendable {
         self.prompt = prompt
         self.reply = reply
         self.file = file
+        self.pid = pid
+        self.tty = tty
     }
 
     /// То, что нужно показать в карточке разрешения.
@@ -63,6 +70,8 @@ struct AgentEvent: Equatable, Sendable {
         let tool_name: String?
         let prompt: String?
         let last_assistant_message: String?
+        let odin_pid: Int?
+        let odin_tty: String?
     }
 
     /// `nil`, если это не JSON хука или в нём нет имени события и сессии.
@@ -81,7 +90,9 @@ struct AgentEvent: Equatable, Sendable {
             step: name == "PreToolUse" ? step(in: data, tool: wire.tool_name) : nil,
             prompt: name == "UserPromptSubmit" ? wire.prompt.flatMap(oneLine) : nil,
             reply: name == "Stop" ? wire.last_assistant_message.flatMap(oneLine) : nil,
-            file: name == "PreToolUse" ? editedFile(in: data, tool: wire.tool_name) : nil
+            file: name == "PreToolUse" ? editedFile(in: data, tool: wire.tool_name) : nil,
+            pid: wire.odin_pid.flatMap { $0 > 1 ? $0 : nil },
+            tty: wire.odin_tty.flatMap(ttyName)
         )
     }
 
@@ -94,6 +105,14 @@ struct AgentEvent: Equatable, Sendable {
             .trimmingCharacters(in: .whitespaces)
         guard !flat.isEmpty else { return nil }
         return flat.count > maxMessage ? String(flat.prefix(maxMessage - 1)) + "…" : flat
+    }
+
+    /// `ttys003` или `/dev/ttys003` → `ttys003`. Всё, что на имя терминала не
+    /// похоже, отбрасывается: оно уйдёт в AppleScript.
+    private static func ttyName(_ raw: String) -> String? {
+        let name = raw.hasPrefix("/dev/") ? String(raw.dropFirst(5)) : raw
+        guard name.count <= 16, name.hasPrefix("ttys"), name.dropFirst(4).allSatisfy(\.isNumber) else { return nil }
+        return name
     }
 
     private static func editedFile(in data: Data, tool: String?) -> String? {

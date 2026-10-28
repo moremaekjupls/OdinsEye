@@ -65,6 +65,14 @@ struct AgentRow: View {
                     .foregroundStyle(Theme.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 6)
+                if let host = TerminalJumper.hostName(of: session) {
+                    HStack(spacing: 3) {
+                        Text(host)
+                        Image(systemName: "arrow.up.forward")
+                    }
+                    .font(.panelCaption)
+                    .foregroundStyle(Theme.tertiary)
+                }
                 // Раз в минуту, а не каждую секунду, как `.relative`: панель
                 // открыта подолгу, и тикающие секунды — это перерисовка впустую.
                 TimelineView(.everyMinute) { context in
@@ -98,6 +106,8 @@ struct AgentRow: View {
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.surface)
         )
+        .contentShape(Rectangle())
+        .onTapGesture { TerminalJumper.jump(to: session) }
     }
 
     private func line(_ symbol: String, _ text: String, color: Color, mono: Bool = false) -> some View {

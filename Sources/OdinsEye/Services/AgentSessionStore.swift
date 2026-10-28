@@ -23,6 +23,9 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     var steps: [String] = []
     /// Файлы, которые правили в этом ходе, без повторов.
     var files: [String] = []
+    /// Процесс Claude Code и терминал, из которого он запущен.
+    var pid: Int? = nil
+    var tty: String? = nil
     var updatedAt: Date
 }
 
@@ -197,6 +200,8 @@ final class AgentSessionStore: ObservableObject {
         sessions[index].state = state
         sessions[index].updatedAt = now
         if let cwd = event.cwd { sessions[index].project = Self.project(of: cwd) }
+        if let pid = event.pid { sessions[index].pid = pid }
+        if let tty = event.tty { sessions[index].tty = tty }
         switch event.name {
         case "PreToolUse":
             sessions[index].tool = event.toolName

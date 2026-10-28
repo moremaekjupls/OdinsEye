@@ -56,3 +56,21 @@ struct AgentTurnDetailsTests {
         #expect(session.files.isEmpty)
     }
 }
+
+@MainActor
+struct TerminalJumpTests {
+    @Test func parsesPidAndTtyAndRejectsOddTty() {
+        let ok = AgentEvent.parse(Data(#"{"hook_event_name":"Stop","session_id":"a","odin_pid":4242,"odin_tty":"ttys003"}"#.utf8))
+        #expect(ok?.pid == 4242 && ok?.tty == "ttys003")
+        let dev = AgentEvent.parse(Data(#"{"hook_event_name":"Stop","session_id":"a","odin_tty":"/dev/ttys012"}"#.utf8))
+        #expect(dev?.tty == "ttys012")
+        let bad = AgentEvent.parse(Data(#"{"hook_event_name":"Stop","session_id":"a","odin_pid":1,"odin_tty":"ttys1\" & do shell script"}"#.utf8))
+        #expect(bad?.tty == nil && bad?.pid == nil)
+    }
+
+    @Test func findsTheHostAppOfThisProcess() {
+        // Тест идёт под xctest/swift-test: хозяин либо найден, либо нет, но без падения.
+        _ = TerminalJumper.hostApp(ofPID: Int(getpid()))
+        #expect(TerminalJumper.hostApp(ofPID: 0) == nil)
+    }
+}

@@ -132,7 +132,7 @@ struct AgentRow: View {
         return rest > 0 ? "\(shown) +\(rest)" : shown
     }
 
-    static func ago(_ date: Date, now: Date) -> String {
+    nonisolated static func ago(_ date: Date, now: Date) -> String {
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 { return localized("now") }
         if seconds < 3600 { return localized("%d min", Int(seconds / 60)) }

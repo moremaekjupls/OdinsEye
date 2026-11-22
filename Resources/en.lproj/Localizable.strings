@@ -153,3 +153,6 @@
 "Playing" = "Playing";
 "Paused" = "Paused";
 "No video chosen" = "No video chosen";
+
+/* Music tab */
+"Song Lyrics" = "Song Lyrics";

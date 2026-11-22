@@ -152,3 +152,6 @@
 "Playing" = "Играет";
 "Paused" = "Пауза";
 "No video chosen" = "Видео не выбрано";
+
+/* Music tab */
+"Song Lyrics" = "Тексты песен";

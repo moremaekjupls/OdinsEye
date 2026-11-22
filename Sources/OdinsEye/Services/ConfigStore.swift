@@ -49,6 +49,8 @@ final class ConfigStore: ObservableObject {
         var hiddenTabs: [String] = []
         var keepAwake = KeepAwakeConfig()
         var wallpaper = WallpaperConfig()
+        /// Тексты песен во вкладке «Музыка» (запрос в lrclib.net).
+        var lyrics = true
 
         init() {}
 
@@ -67,6 +69,7 @@ final class ConfigStore: ObservableObject {
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
             wallpaper = try c.decodeIfPresent(WallpaperConfig.self, forKey: .wallpaper) ?? d.wallpaper
+            lyrics = try c.decodeIfPresent(Bool.self, forKey: .lyrics) ?? d.lyrics
         }
     }
 
@@ -135,6 +138,13 @@ final class ConfigStore: ObservableObject {
     var keepAwakeDisplay: Bool {
         get { value.keepAwake.display }
         set { value.keepAwake.display = newValue; persist() }
+    }
+
+    /// Тексты песен. Включены по умолчанию; название, исполнитель, альбом и
+    /// длительность трека уходят в lrclib.net, пока панель открыта на «Музыке».
+    var lyrics: Bool {
+        get { value.lyrics }
+        set { value.lyrics = newValue; persist() }
     }
 
     /// Живые обои рабочего стола: включены ли, какой файл, пауза на батарее.

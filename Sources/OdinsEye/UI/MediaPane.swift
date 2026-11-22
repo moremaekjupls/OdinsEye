@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MediaPane: View {
     @ObservedObject var media: MediaController
+    @ObservedObject var lyrics: LyricsStore
 
     @State private var scrubHover = false
     /// Set while dragging, so the bar follows the finger instead of the clock.
@@ -9,7 +10,7 @@ struct MediaPane: View {
 
     /// Artwork and the text column share this height, so their top and bottom
     /// edges line up instead of the column floating past them.
-    private let blockHeight: CGFloat = 122
+    private var blockHeight: CGFloat { lyrics.hasLyrics ? 150 : 122 }
 
     var body: some View {
         if let track = media.track {
@@ -26,6 +27,11 @@ struct MediaPane: View {
                         .lineLimit(1)
                         .padding(.top, 3)
 
+                    if lyrics.hasLyrics {
+                        lyricLines
+                            .padding(.top, 8)
+                    }
+
                     Spacer(minLength: 6)
                     controls
                     Spacer(minLength: 6)
@@ -37,6 +43,7 @@ struct MediaPane: View {
             // Title and artist arrive together, so the whole column can cross-
             // fade as one unit when the track changes.
             .animation(Theme.artworkAnimation, value: track.key)
+            .animation(Theme.contentAnimation, value: lyrics.hasLyrics)
         } else {
             emptyState
         }
@@ -93,6 +100,37 @@ struct MediaPane: View {
         )
         .shadow(color: .black.opacity(0.5), radius: 12, y: 5)
         .animation(Theme.artworkAnimation, value: media.artwork)
+    }
+
+    // MARK: - Lyrics
+
+    /// Звучащая строка и следующая за ней. Строки меняются раз в несколько
+    /// секунд, поэтому смена на кроссфейде, без движения: бегущий текст в углу
+    /// глаза отвлекает больше, чем помогает.
+    private var lyricLines: some View {
+        let shown = lyrics.visible(at: media.position)
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(line(shown.current, fallback: "♪"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .id(shown.current ?? "")
+                .transition(.opacity)
+            Text(line(shown.next, fallback: ""))
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.tertiary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)
+        .animation(Theme.contentAnimation, value: shown.current)
+    }
+
+    /// Пустая строка в LRC — пауза между куплетами: показываем ноту.
+    private func line(_ text: String?, fallback: String) -> String {
+        guard let text else { return fallback }
+        return text.isEmpty ? "♪" : text
     }
 
     // MARK: - Scrubber

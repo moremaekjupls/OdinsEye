@@ -28,6 +28,11 @@ struct SettingsPane: View {
                         isOn: launchAtLoginBinding
                     )
                     toggleRow(
+                        symbol: "text.quote",
+                        title: localized("Song Lyrics"),
+                        isOn: Binding(get: { vm.lyrics.isEnabled }, set: { vm.lyrics.setEnabled($0) })
+                    )
+                    toggleRow(
                         symbol: "speaker.wave.2",
                         title: localized("Peeky Sounds"),
                         isOn: Binding(get: { config.sounds }, set: { config.sounds = $0 })

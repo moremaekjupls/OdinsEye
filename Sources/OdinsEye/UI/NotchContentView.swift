@@ -172,7 +172,7 @@ struct NotchContentView: View {
     private var pane: some View {
         switch vm.tab {
         case .media:
-            MediaPane(media: vm.media)
+            MediaPane(media: vm.media, lyrics: vm.lyrics)
         case .agents:
             AgentsPane(agents: vm.agents, avatar: vm.avatar)
         case .shelf:

@@ -147,6 +147,7 @@ final class NotchViewModel: ObservableObject {
         guard active != isPanelActive else { return }
         isPanelActive = active
         if isVisible(.media) { media.setActive(active) }
+        lyrics.setWanted(active && tab == .media && isVisible(.media))
     }
 
     private var started = false
@@ -159,6 +160,7 @@ final class NotchViewModel: ObservableObject {
 
     @Published var tab: Tab = .media {
         didSet {
+            lyrics.setWanted(isPanelActive && tab == .media && isVisible(.media))
             // The snippets file is edited from outside the app, so it is read
             // on the way in rather than held from launch.
             if tab == .snippets { snippets.reload() }
@@ -197,6 +199,8 @@ final class NotchViewModel: ObservableObject {
     let avatar: AvatarModel
     /// Живые обои рабочего стола. Играют, пока вкладка на рельсе.
     let wallpaper = WallpaperStore()
+    /// Текст песни в «Музыке»; в сеть ходит, только пока панель открыта на ней.
+    let lyrics: LyricsStore
     /// "Не спать": holds a power assertion while on. Lives here because the
     /// panel and the menu bar both switch it.
     let keepAwake = KeepAwake()
@@ -206,7 +210,9 @@ final class NotchViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        self.media = MediaController()
+        let media = MediaController()
+        self.media = media
+        self.lyrics = LyricsStore(duration: { media.duration })
         self.shelf = ShelfStore()
         self.clipboard = ClipboardStore()
         self.screenshotFolder = ScreenshotFolderWatcher()
@@ -236,6 +242,10 @@ final class NotchViewModel: ObservableObject {
         // last one that lands. Their panes observe them directly, and the
         // header counter refreshes anyway, because the list is only ever
         // re-read on the way into the tab.
+        media.$track
+            .sink { [weak self] track in MainActor.assumeIsolated { self?.lyrics.trackChanged(track) } }
+            .store(in: &cancellables)
+
         for child in [
             media.objectWillChange,
             shelf.objectWillChange,

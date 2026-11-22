@@ -109,6 +109,8 @@ struct NotchContentView: View {
             counter(vm.snippets.items.count)
         case .currency:
             CurrencyRateDate(currencies: vm.currencies)
+        case .wallpaper:
+            EmptyView()
         case .settings:
             EmptyView()
         }
@@ -181,6 +183,8 @@ struct NotchContentView: View {
             SnippetsPane(snippets: vm.snippets, privacy: vm.privacy, wantsKeyboard: $panel.wantsKeyboard)
         case .currency:
             CurrencyPane(currencies: vm.currencies, wantsKeyboard: $panel.wantsKeyboard)
+        case .wallpaper:
+            WallpaperPane(wallpaper: vm.wallpaper)
         case .settings:
             SettingsPane(vm: vm, shelf: vm.shelf, screenshots: vm.screenshotFolder, keepAwake: vm.keepAwake)
         }

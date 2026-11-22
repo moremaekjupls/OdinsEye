@@ -137,3 +137,19 @@
 "needs review" = "needs review";
 "approved" = "approved";
 "changes" = "changes";
+
+/* Wallpaper tab */
+"Wallpaper" = "Wallpaper";
+"Choose Wallpaper Video" = "Choose Wallpaper Video";
+"The video plays on the desktop, muted, on a loop." = "The video plays on the desktop, muted, on a loop.";
+"Choose" = "Choose";
+"The video file is gone" = "The video file is gone";
+"This file cannot be played" = "This file cannot be played";
+"Live Wallpaper" = "Live Wallpaper";
+"Choose Video…" = "Choose Video…";
+"Change Video…" = "Change Video…";
+"Remove Video" = "Remove Video";
+"Pause on Battery" = "Pause on Battery";
+"Playing" = "Playing";
+"Paused" = "Paused";
+"No video chosen" = "No video chosen";

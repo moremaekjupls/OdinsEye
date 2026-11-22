@@ -8,6 +8,7 @@
 "Clipboard" = "Буфер";
 "Snippets" = "Заготовки";
 "Currency" = "Валюта";
+"Wallpaper" = "Обои";
 "Settings" = "Настройки";
 
 /* Меню-бар */
@@ -136,3 +137,18 @@
 "needs review" = "ждёт ревью";
 "approved" = "одобрен";
 "changes" = "правки";
+
+/* Вкладка «Обои» */
+"Choose Wallpaper Video" = "Выберите видео для обоев";
+"The video plays on the desktop, muted, on a loop." = "Видео идёт на рабочем столе по кругу, без звука.";
+"Choose" = "Выбрать";
+"The video file is gone" = "Файла с видео больше нет";
+"This file cannot be played" = "Этот файл не воспроизводится";
+"Live Wallpaper" = "Живые обои";
+"Choose Video…" = "Выбрать видео…";
+"Change Video…" = "Другое видео…";
+"Remove Video" = "Убрать видео";
+"Pause on Battery" = "Пауза на батарее";
+"Playing" = "Играет";
+"Paused" = "Пауза";
+"No video chosen" = "Видео не выбрано";

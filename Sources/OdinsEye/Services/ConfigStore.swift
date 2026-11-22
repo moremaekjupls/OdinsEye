@@ -32,6 +32,21 @@ final class ConfigStore: ObservableObject {
         var keepAwake = KeepAwakeConfig()
         /// Тексты песен во вкладке «Музыка» (запрос в lrclib.net).
         var lyrics = true
+        /// Панель и Peeky не попадают в запись и скриншоты экрана.
+        var hideFromCapture = false
+        /// Лёгкий отклик тачпада при открытии панели и смене вкладки.
+        var haptics = true
+        /// Панель из «жидкого стекла» (macOS 26+).
+        var glass = false
+        /// Фон вкладки «Музыка» берёт цвет обложки.
+        var matchSongColor = false
+        /// Не раскрывать панель наведением поверх приложения в полноэкранном режиме.
+        var hideInFullscreen = false
+        var glassTint = 0.6
+        var songColorStrength = 0.34
+        var openDelay = 0.05
+        /// Профили, сохранённые пользователем. Готовые живут в коде.
+        var profiles: [SettingsProfile] = []
 
         init() {}
 
@@ -50,6 +65,20 @@ final class ConfigStore: ObservableObject {
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
             lyrics = try c.decodeIfPresent(Bool.self, forKey: .lyrics) ?? d.lyrics
+            hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? d.hideFromCapture
+            haptics = try c.decodeIfPresent(Bool.self, forKey: .haptics) ?? d.haptics
+            glass = try c.decodeIfPresent(Bool.self, forKey: .glass) ?? d.glass
+            matchSongColor = try c.decodeIfPresent(Bool.self, forKey: .matchSongColor) ?? d.matchSongColor
+            hideInFullscreen = try c.decodeIfPresent(Bool.self, forKey: .hideInFullscreen) ?? d.hideInFullscreen
+            glassTint = SettingsSnapshot.clamp(
+                try c.decodeIfPresent(Double.self, forKey: .glassTint) ?? d.glassTint, SettingsSnapshot.glassTintRange)
+            songColorStrength = SettingsSnapshot.clamp(
+                try c.decodeIfPresent(Double.self, forKey: .songColorStrength) ?? d.songColorStrength,
+                SettingsSnapshot.songColorRange)
+            openDelay = SettingsSnapshot.clamp(
+                try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, SettingsSnapshot.openDelayRange)
+            // Битый профиль не должен ронять весь файл: читается по одному.
+            profiles = (try? c.decodeIfPresent([SettingsProfile].self, forKey: .profiles)) ?? d.profiles
         }
     }
 
@@ -127,6 +156,96 @@ final class ConfigStore: ObservableObject {
         set { value.lyrics = newValue; persist() }
     }
 
+    var hideFromCapture: Bool {
+        get { value.hideFromCapture }
+        set { value.hideFromCapture = newValue; persist() }
+    }
+
+    var haptics: Bool {
+        get { value.haptics }
+        set { value.haptics = newValue; persist() }
+    }
+
+    var glass: Bool {
+        get { value.glass }
+        set { value.glass = newValue; persist() }
+    }
+
+    var matchSongColor: Bool {
+        get { value.matchSongColor }
+        set { value.matchSongColor = newValue; persist() }
+    }
+
+    var hideInFullscreen: Bool {
+        get { value.hideInFullscreen }
+        set { value.hideInFullscreen = newValue; persist() }
+    }
+
+    var glassTint: Double {
+        get { value.glassTint }
+        set { value.glassTint = SettingsSnapshot.clamp(newValue, SettingsSnapshot.glassTintRange); persist() }
+    }
+
+    var songColorStrength: Double {
+        get { value.songColorStrength }
+        set { value.songColorStrength = SettingsSnapshot.clamp(newValue, SettingsSnapshot.songColorRange); persist() }
+    }
+
+    var openDelay: Double {
+        get { value.openDelay }
+        set { value.openDelay = SettingsSnapshot.clamp(newValue, SettingsSnapshot.openDelayRange); persist() }
+    }
+
+    // MARK: - Profiles
+
+    var customProfiles: [SettingsProfile] { value.profiles }
+
+    /// Текущие настройки целиком, как их хранит профиль.
+    var snapshot: SettingsSnapshot {
+        var s = SettingsSnapshot()
+        s.sounds = value.sounds
+        s.lyrics = value.lyrics
+        s.haptics = value.haptics
+        s.hideFromCapture = value.hideFromCapture
+        s.glass = value.glass
+        s.glassTint = value.glassTint
+        s.matchSongColor = value.matchSongColor
+        s.songColorStrength = value.songColorStrength
+        s.hideInFullscreen = value.hideInFullscreen
+        s.openDelay = value.openDelay
+        s.hiddenTabs = value.hiddenTabs.sorted()
+        return s
+    }
+
+    /// Применяет всё, кроме вкладок и текстов песен: у тех есть работающие
+    /// службы, их включает и выключает `NotchViewModel.apply`.
+    func applyLook(_ s: SettingsSnapshot) {
+        value.sounds = s.sounds
+        value.haptics = s.haptics
+        value.hideFromCapture = s.hideFromCapture
+        value.glass = s.glass
+        value.glassTint = s.glassTint
+        value.matchSongColor = s.matchSongColor
+        value.songColorStrength = s.songColorStrength
+        value.hideInFullscreen = s.hideInFullscreen
+        value.openDelay = s.openDelay
+        persist()
+    }
+
+    @discardableResult
+    func addProfile(from settings: SettingsSnapshot) -> SettingsProfile {
+        let name = SettingsProfile.nextName(existing: value.profiles.map(\.name))
+        let profile = SettingsProfile(id: UUID().uuidString, name: name, settings: settings)
+        value.profiles.append(profile)
+        persist()
+        return profile
+    }
+
+    func deleteProfile(id: String) {
+        value.profiles.removeAll { $0.id == id }
+        persist()
+    }
+
     /// Tabs switched off in Settings, by `Tab.rawValue`. Kept as the set
     /// of what is off rather than what is on, so a tab added in a later
     /// version shows up for everyone instead of arriving hidden.
@@ -163,6 +282,9 @@ final class ConfigStore: ObservableObject {
     // MARK: - Storage
 
     private func persist() {
+        // Toggles in Settings read these properties through bindings; without
+        // this, nothing tells SwiftUI the value moved.
+        objectWillChange.send()
         write(value)
     }
 

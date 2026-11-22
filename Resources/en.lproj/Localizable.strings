@@ -140,3 +140,27 @@
 
 /* Music tab */
 "Song Lyrics" = "Song Lyrics";
+
+/* Appearance & behavior */
+"Appearance" = "Appearance";
+"Behavior" = "Behavior";
+"Glass Panel" = "Glass Panel";
+"Match Song Color" = "Match Song Color";
+"Haptic Touch" = "Haptic Touch";
+"Hide in Fullscreen" = "Hide in Fullscreen";
+"Hide from Screen Capture" = "Hide from Screen Capture";
+
+/* Profiles */
+"Profiles" = "Profiles";
+"Save Current as Profile" = "Save Current as Profile";
+"Delete Profile" = "Delete Profile";
+"Reset to Defaults" = "Reset to Defaults";
+"Custom" = "Custom";
+"Default" = "Default";
+"Quiet" = "Quiet";
+"Presentation" = "Presentation";
+"Glass" = "Glass";
+"Profile %d" = "Profile %d";
+"Glass Tint" = "Glass Tint";
+"Color Strength" = "Color Strength";
+"Open Delay" = "Open Delay";

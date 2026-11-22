@@ -139,3 +139,27 @@
 
 /* Music tab */
 "Song Lyrics" = "Тексты песен";
+
+/* Appearance & behavior */
+"Appearance" = "Оформление";
+"Behavior" = "Поведение";
+"Glass Panel" = "Стеклянная панель";
+"Match Song Color" = "Цвет под обложку";
+"Haptic Touch" = "Отклик тачпада";
+"Hide in Fullscreen" = "Скрывать в полноэкранном";
+"Hide from Screen Capture" = "Скрыть от записи экрана";
+
+/* Profiles */
+"Profiles" = "Профили";
+"Save Current as Profile" = "Сохранить текущие как профиль";
+"Delete Profile" = "Удалить профиль";
+"Reset to Defaults" = "Сбросить к умолчаниям";
+"Custom" = "Свои настройки";
+"Default" = "Обычный";
+"Quiet" = "Тихий";
+"Presentation" = "Презентация";
+"Glass" = "Стекло";
+"Profile %d" = "Профиль %d";
+"Glass Tint" = "Затемнение стекла";
+"Color Strength" = "Сила цвета";
+"Open Delay" = "Задержка раскрытия";

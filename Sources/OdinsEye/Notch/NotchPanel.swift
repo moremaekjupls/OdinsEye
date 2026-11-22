@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 /// Borderless, non-activating panel that lives above the menu bar on every space.
 final class NotchPanel: NSPanel {
@@ -36,6 +37,14 @@ final class NotchPanel: NSPanel {
         guard !acceptsKeyboard, isKeyWindow else { return }
         orderOut(nil)
         orderFrontRegardless()
+    }
+
+    /// Слежение за переключателем «Скрыть от записи экрана». Окно с
+    /// `sharingType = .none` не попадает ни в запись, ни в скриншот.
+    private var captureObserver: AnyCancellable?
+
+    private func refreshCapture() {
+        sharingType = ConfigStore.shared.hideFromCapture ? .none : .readOnly
     }
 
     override var canBecomeKey: Bool { acceptsKeyboard }
@@ -140,5 +149,12 @@ final class NotchPanel: NSPanel {
         acceptsMouseMovedEvents = true
         isReleasedWhenClosed = false
         animationBehavior = .none
+
+        refreshCapture()
+        captureObserver = ConfigStore.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshCapture() }
+            }
     }
 }

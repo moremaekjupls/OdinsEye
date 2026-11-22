@@ -31,13 +31,14 @@ struct NotchContentView: View {
         // The shape is wider than the body by `topRadius` on each side: that
         // slack is where the concave shoulders live, so it must not be clipped.
         ZStack(alignment: .top) {
-            NotchShape(
+            PanelBackground(
                 topRadius: topRadius,
-                bottomRadius: isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius
+                bottomRadius: isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius,
+                paints: paintsShape,
+                tintsWithSong: vm.tab == .media,
+                media: vm.media
             )
-            .fill(paintsShape ? Color.black : Color.clear)
             .frame(width: size.width + 2 * topRadius, height: size.height)
-            .shadow(color: .black.opacity(isOpen ? 0.5 : 0), radius: 18, y: 8)
 
             VStack(spacing: 0) {
                 header
@@ -184,6 +185,40 @@ struct NotchContentView: View {
         case .settings:
             SettingsPane(vm: vm, shelf: vm.shelf, screenshots: vm.screenshotFolder, keepAwake: vm.keepAwake)
         }
+    }
+}
+
+/// Фон панели: чёрный, как чёлка. По переключателям в настройках на вкладке
+/// «Музыка» подмешивается цвет обложки, а сам фон может стать стеклом.
+/// Наблюдает за плеером сам, чтобы смена обложки не перерисовывала всю панель.
+private struct PanelBackground: View {
+    let topRadius: CGFloat
+    let bottomRadius: CGFloat
+    let paints: Bool
+    let tintsWithSong: Bool
+    @ObservedObject var media: MediaController
+    @ObservedObject private var config = ConfigStore.shared
+
+    private var songColor: Color? {
+        guard config.matchSongColor, tintsWithSong, let accent = media.accent else { return nil }
+        return Color(nsColor: accent)
+    }
+
+    var body: some View {
+        let shape = NotchShape(topRadius: topRadius, bottomRadius: bottomRadius)
+        let base = Color.black.mix(with: songColor ?? .black, by: songColor == nil ? 0 : config.songColorStrength)
+        Group {
+            if paints, config.glass, #available(macOS 26.0, *) {
+                // Тёмный оттенок поверх стекла: текст панели белый и должен
+                // читаться на любых обоях.
+                shape.fill(Color.clear)
+                    .glassEffect(.regular.tint(base.opacity(config.glassTint)), in: shape)
+            } else {
+                shape.fill(paints ? base : Color.clear)
+            }
+        }
+        .shadow(color: .black.opacity(paints ? 0.5 : 0), radius: 18, y: 8)
+        .animation(Theme.artworkAnimation, value: songColor)
     }
 }
 

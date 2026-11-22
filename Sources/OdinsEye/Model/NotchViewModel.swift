@@ -78,6 +78,18 @@ final class NotchViewModel: ObservableObject {
 
     func isVisible(_ tab: Tab) -> Bool { !hiddenTabs.contains(tab) }
 
+    /// Включает профиль: настройки, тексты песен и, если профиль их задаёт,
+    /// набор вкладок. Вкладки идут через `setVisible`, чтобы выключенные
+    /// остановили и свою фоновую работу.
+    func apply(_ profile: SettingsProfile) {
+        let s = profile.settings
+        ConfigStore.shared.applyLook(s)
+        lyrics.setEnabled(s.lyrics)
+        guard let hidden = s.hiddenTabs else { return }
+        let off = Set(hidden)
+        for tab in Tab.allCases where tab.canHide { setVisible(tab, !off.contains(tab.rawValue)) }
+    }
+
     /// The rail as it stands with the switches applied.
     var rail: [Tab] { Tab.rail.filter(isVisible) }
 

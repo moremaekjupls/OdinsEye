@@ -15,7 +15,11 @@ final class MediaController: ObservableObject {
     }
 
     @Published private(set) var track: Track?
-    @Published private(set) var artwork: NSImage?
+    @Published private(set) var artwork: NSImage? {
+        didSet { accent = artwork.flatMap(ArtworkColor.dominant(of:)) }
+    }
+    /// Главный цвет обложки; nil без обложки или у чёрно-белой.
+    @Published private(set) var accent: NSColor?
     @Published private(set) var isPlaying = false
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var position: TimeInterval = 0

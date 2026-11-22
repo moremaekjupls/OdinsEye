@@ -21,6 +21,13 @@ struct SettingsPane: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 14) {
+                section(localized("Profiles")) {
+                    profileRow
+                    actionRow(symbol: "plus.circle", title: localized("Save Current as Profile")) {
+                        config.addProfile(from: config.snapshot)
+                    }
+                }
+
                 section(localized("General")) {
                     toggleRow(
                         symbol: "arrow.forward.to.line",
@@ -36,6 +43,62 @@ struct SettingsPane: View {
                         symbol: "speaker.wave.2",
                         title: localized("Peeky Sounds"),
                         isOn: Binding(get: { config.sounds }, set: { config.sounds = $0 })
+                    )
+                }
+
+                section(localized("Appearance")) {
+                    if #available(macOS 26.0, *) {
+                        toggleRow(
+                            symbol: "square.stack.3d.up",
+                            title: localized("Glass Panel"),
+                            isOn: Binding(get: { config.glass }, set: { config.glass = $0 })
+                        )
+                        if config.glass {
+                            sliderRow(
+                                symbol: "circle.lefthalf.filled",
+                                title: localized("Glass Tint"),
+                                value: Binding(get: { config.glassTint }, set: { config.glassTint = $0 }),
+                                range: SettingsSnapshot.glassTintRange
+                            )
+                        }
+                    }
+                    toggleRow(
+                        symbol: "paintpalette",
+                        title: localized("Match Song Color"),
+                        isOn: Binding(get: { config.matchSongColor }, set: { config.matchSongColor = $0 })
+                    )
+                    if config.matchSongColor {
+                        sliderRow(
+                            symbol: "slider.horizontal.3",
+                            title: localized("Color Strength"),
+                            value: Binding(get: { config.songColorStrength }, set: { config.songColorStrength = $0 }),
+                            range: SettingsSnapshot.songColorRange
+                        )
+                    }
+                }
+
+                section(localized("Behavior")) {
+                    sliderRow(
+                        symbol: "timer",
+                        title: localized("Open Delay"),
+                        value: Binding(get: { config.openDelay }, set: { config.openDelay = $0 }),
+                        range: SettingsSnapshot.openDelayRange,
+                        format: { String(format: "%.2f s", $0) }
+                    )
+                    toggleRow(
+                        symbol: "hand.tap",
+                        title: localized("Haptic Touch"),
+                        isOn: Binding(get: { config.haptics }, set: { config.haptics = $0 })
+                    )
+                    toggleRow(
+                        symbol: "arrow.up.left.and.arrow.down.right",
+                        title: localized("Hide in Fullscreen"),
+                        isOn: Binding(get: { config.hideInFullscreen }, set: { config.hideInFullscreen = $0 })
+                    )
+                    toggleRow(
+                        symbol: "eye.slash",
+                        title: localized("Hide from Screen Capture"),
+                        isOn: Binding(get: { config.hideFromCapture }, set: { config.hideFromCapture = $0 })
                     )
                 }
 
@@ -110,6 +173,9 @@ struct SettingsPane: View {
                 // of five.
                 section(localized("Configuration")) {
                     if config.fileBroken { configBrokenNotice }
+                    actionRow(symbol: "arrow.counterclockwise", title: localized("Reset to Defaults")) {
+                        if let normal = SettingsProfile.builtIn.first { vm.apply(normal) }
+                    }
                     actionRow(symbol: "gearshape", title: localized("Show Config File")) {
                         ConfigStore.reveal()
                     }
@@ -265,6 +331,79 @@ struct SettingsPane: View {
                     .fill(Theme.surface)
             )
         }
+    }
+
+    /// Готовые профили и свои. Включён тот, с которым настройки совпадают
+    /// сейчас: отдельного «текущего профиля» нигде не хранится, поэтому он не
+    /// может разойтись с тем, что человек потом подкрутил руками.
+    private var profileRow: some View {
+        let current = config.snapshot
+        let profiles = SettingsProfile.builtIn + config.customProfiles
+        let activeID = profiles.first { $0.settings.matches(current: current) }?.id
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                ForEach(profiles) { profile in
+                    let selected = profile.id == activeID
+                    Button {
+                        vm.apply(profile)
+                        Haptics.tick()
+                    } label: {
+                        Text(verbatim: profile.name)
+                            .font(.panelCaptionMedium)
+                            .foregroundStyle(selected ? Theme.primary : Theme.secondary)
+                            .padding(.horizontal, 10)
+                            .frame(height: 22)
+                            .background(Capsule().fill(selected ? Theme.surfaceHover : Theme.surface))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                    .contextMenu {
+                        if !profile.isBuiltIn {
+                            Button(localized("Delete Profile"), role: .destructive) {
+                                config.deleteProfile(id: profile.id)
+                            }
+                        }
+                    }
+                }
+                if activeID == nil {
+                    Text(localized("Custom"))
+                        .font(.panelCaption)
+                        .foregroundStyle(Theme.tertiary)
+                        .padding(.leading, 4)
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+        .frame(height: 30)
+    }
+
+    private func sliderRow(
+        symbol: String,
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: @escaping (Double) -> String = { String(format: "%.0f%%", $0 * 100) }
+    ) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.secondary)
+                .frame(width: 18)
+            Text(title)
+                .font(.panelBody)
+                .foregroundStyle(Theme.primary)
+            Spacer(minLength: 8)
+            Slider(value: value, in: range)
+                .controlSize(.mini)
+                .tint(Color.white.opacity(0.7))
+                .frame(width: 150)
+            Text(verbatim: format(value.wrappedValue))
+                .font(.panelCaption.monospacedDigit())
+                .foregroundStyle(Theme.secondary)
+                .frame(width: 40, alignment: .trailing)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 30)
     }
 
     private func toggleRow(symbol: String, title: String, isOn: Binding<Bool>) -> some View {

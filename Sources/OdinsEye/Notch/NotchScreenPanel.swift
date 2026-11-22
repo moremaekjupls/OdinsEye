@@ -141,7 +141,13 @@ final class NotchScreenPanel {
         pointer.closeRect = geometry.hoverRect(for: state.openBodySize)
         // Nothing under the hole means opening the moment the pointer arrives
         // costs nothing.
-        pointer.openDelay = 0.05
+        pointer.openDelay = ConfigStore.shared.openDelay
+        ConfigStore.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.pointer.openDelay = ConfigStore.shared.openDelay }
+            }
+            .store(in: &cancellables)
         // «Уши» острова наводят на панель после паузы, и Peeky здоровается.
         pointer.onEarHover = { [weak self] entered in
             guard entered else { return }
@@ -165,6 +171,14 @@ final class NotchScreenPanel {
             // that are not the pointer, like the screen going to sleep, still
             // close a pinned panel.
             if !inside, holdsOpen { return }
+            // Поверх фильма или игры во весь экран панель наведением не
+            // раскрывается (по переключателю). Меню, перетаскивание файла и
+            // запрос разрешения от агента по-прежнему открывают её.
+            if inside, !state.isOpen, ConfigStore.shared.hideInFullscreen,
+               FullscreenProbe.isFullscreenAppOn(geometry.screen) {
+                pointer.setInside(false)
+                return
+            }
             setOpen(inside)
         }
         // Everything outside the visible panel must reach the app underneath:
@@ -311,6 +325,7 @@ final class NotchScreenPanel {
             // Grow the interactive area first so the pointer never falls
             // through a region the animation has not covered yet.
             applyActiveRect(open: true)
+            Haptics.tick()
             withAnimation(Theme.openAnimation) { state.isOpen = true }
         } else {
             // The keyboard goes first and the fold goes second — one run-loop

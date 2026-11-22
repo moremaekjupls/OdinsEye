@@ -51,6 +51,7 @@ final class PanelState: ObservableObject {
     /// The tab is shared and the keyboard is not: choosing on one screen
     /// changes what every screen shows, but only this one starts listening.
     func select(_ tab: NotchViewModel.Tab) {
+        if vm.tab != tab { Haptics.tick() }
         vm.tab = tab
         if tab.needsKeyboard { wantsKeyboard = true }
     }

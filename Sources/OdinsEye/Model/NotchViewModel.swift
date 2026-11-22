@@ -4,7 +4,7 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case media, agents, shelf, clipboard, snippets, currency, wallpaper, settings
+        case media, agents, shelf, clipboard, snippets, currency, settings
         var id: String { rawValue }
 
         var symbol: String {
@@ -15,7 +15,6 @@ final class NotchViewModel: ObservableObject {
             case .clipboard: return "list.clipboard.fill"
             case .snippets: return "pin.fill"
             case .currency: return "dollarsign.circle"
-            case .wallpaper: return "play.rectangle.fill"
             case .settings: return "gearshape.fill"
             }
         }
@@ -28,7 +27,6 @@ final class NotchViewModel: ObservableObject {
             case .clipboard: return localized("Clipboard")
             case .snippets: return localized("Snippets")
             case .currency: return localized("Currency")
-            case .wallpaper: return localized("Wallpaper")
             case .settings: return localized("Settings")
             }
         }
@@ -47,7 +45,7 @@ final class NotchViewModel: ObservableObject {
         /// last. The second column on the right used to exist for the notes;
         /// with them gone it holds the panel's own switches instead — the pin
         /// and keep-awake, see `PanelControls`.
-        static let rail: [Tab] = [.media, .agents, .shelf, .clipboard, .snippets, .currency, .wallpaper, .settings]
+        static let rail: [Tab] = [.media, .agents, .shelf, .clipboard, .snippets, .currency, .settings]
     }
 
     /// What every screen's panel adds up to, kept by `NotchController`: this
@@ -121,8 +119,6 @@ final class NotchViewModel: ObservableObject {
             currencies.start()
         case .agents:
             agents.start()
-        case .wallpaper:
-            wallpaper.start()
         case .snippets, .settings:
             break
         }
@@ -135,7 +131,6 @@ final class NotchViewModel: ObservableObject {
         case .shelf: screenshotFolder.stop()
         case .currency: currencies.stop()
         case .agents: agents.stop()
-        case .wallpaper: wallpaper.stop()
         case .snippets, .settings: break
         }
     }
@@ -197,8 +192,6 @@ final class NotchViewModel: ObservableObject {
     let agents: AgentSessionStore
     /// Аватар, который следит за сессиями; рисует его `AvatarPanel`.
     let avatar: AvatarModel
-    /// Живые обои рабочего стола. Играют, пока вкладка на рельсе.
-    let wallpaper = WallpaperStore()
     /// Текст песни в «Музыке»; в сеть ходит, только пока панель открыта на ней.
     let lyrics: LyricsStore
     /// "Не спать": holds a power assertion while on. Lives here because the

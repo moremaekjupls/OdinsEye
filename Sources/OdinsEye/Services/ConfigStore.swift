@@ -23,24 +23,6 @@ final class ConfigStore: ObservableObject {
         var display = true
     }
 
-    private struct WallpaperConfig: Codable, Equatable {
-        var enabled = false
-        /// Путь к видео. Приложение не в песочнице, закладка не нужна.
-        var videoPath: String?
-        /// На батарее обои стоят на паузе: видео берёт процессор.
-        var pauseOnBattery = true
-
-        init() {}
-
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            let d = WallpaperConfig()
-            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? d.enabled
-            videoPath = try c.decodeIfPresent(String.self, forKey: .videoPath)
-            pauseOnBattery = try c.decodeIfPresent(Bool.self, forKey: .pauseOnBattery) ?? d.pauseOnBattery
-        }
-    }
-
     private struct File: Codable, Equatable {
         var saveClipboardImages = true
         /// Тихие звуки Peeky (приветствие, запрос, «готово»).
@@ -48,7 +30,6 @@ final class ConfigStore: ObservableObject {
         var privacy: [String] = []
         var hiddenTabs: [String] = []
         var keepAwake = KeepAwakeConfig()
-        var wallpaper = WallpaperConfig()
         /// Тексты песен во вкладке «Музыка» (запрос в lrclib.net).
         var lyrics = true
 
@@ -68,7 +49,6 @@ final class ConfigStore: ObservableObject {
             privacy = try c.decodeIfPresent([String].self, forKey: .privacy) ?? d.privacy
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             keepAwake = try c.decodeIfPresent(KeepAwakeConfig.self, forKey: .keepAwake) ?? d.keepAwake
-            wallpaper = try c.decodeIfPresent(WallpaperConfig.self, forKey: .wallpaper) ?? d.wallpaper
             lyrics = try c.decodeIfPresent(Bool.self, forKey: .lyrics) ?? d.lyrics
         }
     }
@@ -145,22 +125,6 @@ final class ConfigStore: ObservableObject {
     var lyrics: Bool {
         get { value.lyrics }
         set { value.lyrics = newValue; persist() }
-    }
-
-    /// Живые обои рабочего стола: включены ли, какой файл, пауза на батарее.
-    var wallpaperEnabled: Bool {
-        get { value.wallpaper.enabled }
-        set { value.wallpaper.enabled = newValue; persist() }
-    }
-
-    var wallpaperVideoPath: String? {
-        get { value.wallpaper.videoPath }
-        set { value.wallpaper.videoPath = newValue; persist() }
-    }
-
-    var wallpaperPauseOnBattery: Bool {
-        get { value.wallpaper.pauseOnBattery }
-        set { value.wallpaper.pauseOnBattery = newValue; persist() }
     }
 
     /// Tabs switched off in Settings, by `Tab.rawValue`. Kept as the set

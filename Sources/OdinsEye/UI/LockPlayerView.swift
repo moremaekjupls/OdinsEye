@@ -7,13 +7,74 @@ private let tapLog = Logger(subsystem: "com.moremaekjupls.odinseye", category: "
 /// Apple: обложка слева, название и исполнитель, значок звука справа, ход
 /// песни с временем по краям, крупные кнопки. Единственное окно на блокировке,
 /// и оно принимает только нажатия на кнопки.
+/// Раскрыта ли обложка. Живёт в `LockScreenPlayer`: окно меняет размер вместе с ней.
+@MainActor
+final class LockCoverState: ObservableObject {
+    @Published var expanded = false
+}
+
 struct LockControlsView: View {
     @ObservedObject var media: MediaController
     @ObservedObject var lyrics: LyricsStore
+    @ObservedObject var cover: LockCoverState
+    @ObservedObject private var config = ConfigStore.shared
+    /// Высота свёрнутой карточки: окно при раскрытии становится больше, а карточка
+    /// не должна растягиваться вслед за ним.
+    let cardHeight: CGFloat
+    @Namespace private var space
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 34, style: .continuous) }
 
+    /// Пружина без отскока: обложка растёт из карточки и возвращается тем же путём,
+    /// и её можно перехватить на середине. Без анимации движения: короткое затухание.
+    private var motion: Animation {
+        reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.42, dampingFraction: 0.9)
+    }
+
+    private func toggleCover() {
+        tapLog.notice("tap: cover expanded=\(!cover.expanded, privacy: .public)")
+        withAnimation(motion) { cover.expanded.toggle() }
+    }
+
     var body: some View {
+        ZStack(alignment: .top) {
+            if cover.expanded {
+                expandedCover
+            } else {
+                card
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    // MARK: - Раскрытая обложка
+
+    private var expandedCover: some View {
+        Button(action: toggleCover) {
+            artworkImage
+                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                .matchedGeometryEffect(id: "art", in: space)
+                .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 28)
+        .buttonStyle(PressScaleStyle(scale: 0.985))
+        .accessibilityLabel(localized("Close cover"))
+    }
+
+    @ViewBuilder private var artworkImage: some View {
+        if let image = media.artwork {
+            Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+        } else {
+            Color.white.opacity(0.1)
+        }
+    }
+
+    // MARK: - Карточка
+
+    private var card: some View {
         // Позиция читается по таймеру из «живых» часов плеера: у приложения без
         // окон тики самого плеера опаздывают.
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
@@ -26,8 +87,9 @@ struct LockControlsView: View {
             .padding(.horizontal, 22)
             .padding(.top, 20)
             .padding(.bottom, 14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(GlassSurface(shape: shape, tint: 0.3))
+            .frame(maxWidth: .infinity)
+            .frame(height: cardHeight)
+            .background(GlassSurface(shape: shape, tint: config.lockGlassTint))
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
         }
@@ -64,16 +126,15 @@ struct LockControlsView: View {
     }
 
     private var artwork: some View {
-        ZStack {
-            if let image = media.artwork {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-            } else {
-                Color.white.opacity(0.1)
-            }
+        Button(action: toggleCover) {
+            artworkImage
+                .frame(width: 62, height: 62)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+                .matchedGeometryEffect(id: "art", in: space)
         }
-        .frame(width: 62, height: 62)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .buttonStyle(PressScaleStyle(scale: 0.94))
+        .accessibilityLabel(localized("Show full cover"))
     }
 
     // MARK: - Ход: время по краям, полоса между ними
@@ -145,6 +206,17 @@ private struct LockButtonStyle: ButtonStyle {
             .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? 0.9 : 1)
             .opacity(configuration.isPressed ? 0.6 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Сжатие на касании, сразу: отклик не ждёт отпускания.
+private struct PressScaleStyle: ButtonStyle {
+    let scale: CGFloat
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? scale : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

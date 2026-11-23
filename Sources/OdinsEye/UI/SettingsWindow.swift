@@ -240,6 +240,29 @@ private struct ToggleRow: View {
     }
 }
 
+/// Ползунок прозрачности стекла, как «Liquid Glass» в системных настройках:
+/// слева прозрачное, справа затемнённое. Значок на каждом конце показывает край.
+private struct GlassLevelRow: View {
+    let title: String
+    @Binding var value: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title).font(.system(size: 13, weight: .medium))
+            Spacer(minLength: 12)
+            Image(systemName: "square.on.square")
+                .font(.system(size: 14)).foregroundStyle(.secondary)
+            Slider(value: $value, in: SettingsSnapshot.glassTintRange).frame(width: 190)
+            Image(systemName: "square.on.square.fill")
+                .font(.system(size: 14)).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .accessibilityLabel(title)
+        .accessibilityValue(String(format: "%.0f%%", (1 - value / SettingsSnapshot.glassTintRange.upperBound) * 100))
+    }
+}
+
 private struct SliderRow: View {
     let title: String
     @Binding var value: Double
@@ -467,6 +490,11 @@ private struct SettingsPageView: View {
             )
             .disabled(!vm.lockScreen.isAvailable)
         }
+        if #available(macOS 26.0, *) {
+            Card(localized("Glass")) {
+                GlassLevelRow(title: localized("Player"), value: number(\.lockGlassTint))
+            }
+        }
         Card(localized("Status")) {
             Text(vm.lockScreen.isAvailable
                  ? localized("Shows the cover and a small player under the system clock while the Mac is locked: previous, play or pause, next and, for Apple Music, a heart. Only the buttons take clicks, nothing takes the keyboard, and the password field stays the system's.")
@@ -492,8 +520,7 @@ private struct SettingsPageView: View {
                 ToggleRow(title: localized("Glass Panel"), isOn: flag(\.glass))
                 if config.glass {
                     RowDivider()
-                    SliderRow(
-                        title: localized("Glass Tint"), value: number(\.glassTint), range: SettingsSnapshot.glassTintRange)
+                    GlassLevelRow(title: localized("Notch Panel"), value: number(\.glassTint))
                 }
             }
         } else {

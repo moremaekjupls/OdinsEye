@@ -31,6 +31,10 @@ final class LockScreenPlayer: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var started = false
     private var activity: NSObjectProtocol?
+    /// Раскрытая обложка: окно растёт под неё и сжимается обратно.
+    let cover = LockCoverState()
+    private(set) var cardFrame: CGRect = .zero
+    private var screenFrame: CGRect = .zero
 
     /// Зовётся при каждой смене блокировки: тексту песни нужно загружаться,
     /// пока панель закрыта.
@@ -46,6 +50,14 @@ final class LockScreenPlayer: ObservableObject {
         self.guardMark = guardMark
         self.screen = screen
         self.isAvailable = SkyLightSpace() != nil
+        cover.$expanded
+            .dropFirst()
+            .removeDuplicates()
+            // @Published сообщает до записи значения: окно меняет размер на следующем
+            // обороте, иначе вид перерисуется ещё со старым состоянием.
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] expanded in MainActor.assumeIsolated { self?.resizeForCover(expanded) } }
+            .store(in: &cancellables)
     }
 
     func start() {
@@ -145,8 +157,12 @@ final class LockScreenPlayer: ObservableObject {
         guardMark.arm()
         let frame = LockScreenPolicy.frame(on: screen.frame)
         // Одно окно: карточка с кнопками. Ничего больше на блокировке не рисуется.
+        cover.expanded = false
+        cardFrame = frame
+        screenFrame = screen.frame
         let card = LockWindow(contentRect: frame, interactive: true)
-        let host = FirstMouseHostingView(rootView: LockControlsView(media: media, lyrics: lyrics))
+        let host = FirstMouseHostingView(
+            rootView: LockControlsView(media: media, lyrics: lyrics, cover: cover, cardHeight: frame.height))
         host.frame = CGRect(origin: .zero, size: frame.size)
         host.autoresizingMask = [.width, .height]
         card.contentView = host
@@ -167,19 +183,47 @@ final class LockScreenPlayer: ObservableObject {
         let size = LockScreenPolicy.cardSize
         let frame = CGRect(x: screen.frame.midX - size.width / 2, y: screen.frame.midY - size.height / 2,
                            width: size.width, height: size.height)
+        cover.expanded = false
+        cardFrame = frame
+        screenFrame = screen.frame
         let card = LockWindow(contentRect: frame, interactive: true)
-        let host = FirstMouseHostingView(rootView: LockControlsView(media: media, lyrics: lyrics))
+        let host = FirstMouseHostingView(
+            rootView: LockControlsView(media: media, lyrics: lyrics, cover: cover, cardHeight: frame.height))
         host.frame = CGRect(origin: .zero, size: frame.size)
+        host.autoresizingMask = [.width, .height]
         card.contentView = host
         card.level = .floating
         card.setFrame(frame, display: false)
         card.orderFrontRegardless()
         previewWindow = card
+        // `--lock-cover`: сразу с раскрытой обложкой, чтобы смотреть её без мыши.
+        if CommandLine.arguments.contains("--lock-cover") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                MainActor.assumeIsolated { withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) { self?.cover.expanded = true } }
+            }
+        }
     }
 
-    private var previewWindow: NSPanel?
+    private(set) var previewWindow: NSPanel?
+
+    /// Раскрытие растит окно сразу (оно прозрачное, пустое место не видно), а
+    /// сжатие ждёт, пока обложка вернётся в карточку: иначе её обрежет окно.
+    private func resizeForCover(_ expanded: Bool) {
+        guard let window = panels.first ?? previewWindow, cardFrame != .zero else { return }
+        if expanded {
+            window.setFrame(LockScreenPolicy.coverFrame(from: cardFrame, on: screenFrame), display: true)
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
+                MainActor.assumeIsolated {
+                    guard let self, let window, !self.cover.expanded else { return }
+                    window.setFrame(self.cardFrame, display: true)
+                }
+            }
+        }
+    }
 
     private func hide() {
+        cover.expanded = false
         if let space {
             for panel in panels { space.undelegate(panel) }
             space.close()

@@ -13,8 +13,15 @@ enum Support {
     /// the folder already there.
     static let folder: URL = {
         let fm = FileManager.default
-        let url = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("OdinsEye", isDirectory: true)
+        // `ODINSEYE_SUPPORT_DIR` уводит всё, что приложение хранит, в другую папку:
+        // так проверка E2E и предпросмотр не трогают настоящий config.json и сокет.
+        let url: URL
+        if let override = ProcessInfo.processInfo.environment["ODINSEYE_SUPPORT_DIR"], !override.isEmpty {
+            url = URL(fileURLWithPath: override, isDirectory: true)
+        } else {
+            url = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("OdinsEye", isDirectory: true)
+        }
         try? fm.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()
@@ -31,5 +38,20 @@ enum Support {
         let url = folder.appendingPathComponent(name, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+}
+
+/// Один экземпляр на папку данных. Два экземпляра (установленное приложение и
+/// сборка из исходников, оба в автозапуске) держат каждый свою копию настроек и
+/// отбирают друг у друга сокет агента. Замок снимается сам, когда процесс умирает.
+enum SingleInstance {
+    nonisolated(unsafe) private static var descriptor: Int32 = -1
+
+    static func acquire() -> Bool {
+        let fd = open(Support.file("instance.lock").path, O_CREAT | O_RDWR, 0o600)
+        guard fd >= 0 else { return true }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else { close(fd); return false }
+        descriptor = fd
+        return true
     }
 }

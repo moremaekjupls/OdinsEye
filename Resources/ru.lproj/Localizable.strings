@@ -200,3 +200,7 @@
 "It uses private macOS functions and may stop working after an update. If the Mac ever hangs with it on, hold the power button: after the restart the card turns itself off." = "Использует закрытые функции macOS и может перестать работать после обновления. Если Mac завис с ней, удерживайте кнопку питания: после перезагрузки карточка выключится сама.";
 "Agent" = "Агент";
 "Show Agent in Notch" = "Показывать агента у чёлки";
+"Notch Panel" = "Панель у чёлки";
+"Player" = "Плеер";
+"Show full cover" = "Показать обложку целиком";
+"Close cover" = "Скрыть обложку";

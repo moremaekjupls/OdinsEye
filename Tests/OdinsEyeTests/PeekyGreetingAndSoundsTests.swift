@@ -105,7 +105,7 @@ struct PeekyGreetingAndSoundsTests {
     @Test func theModelGreetsOnlyWhileShown() {
         let store = AgentSessionStore(socketURL: URL(fileURLWithPath: "/tmp/odinseye-test-unused.sock"))
         let sounds = sounds()
-        let model = AvatarModel(store: store, poses: Self.poses, sounds: sounds)
+        let model = AvatarModel(store: store, poses: Self.poses, sounds: sounds, enabled: true)
         model.greet()
         #expect(sounds.lastPlayed == nil, "no session, no avatar, no greeting")
 
@@ -158,7 +158,7 @@ struct PeekyGreetingAndSoundsTests {
     @Test func finishingATaskPlaysTheDoneChime() {
         let store = AgentSessionStore(socketURL: URL(fileURLWithPath: "/tmp/odinseye-test-unused.sock"))
         let sounds = sounds()
-        let model = AvatarModel(store: store, poses: Self.poses, sounds: sounds)
+        let model = AvatarModel(store: store, poses: Self.poses, sounds: sounds, enabled: true)
         defer { withExtendedLifetime(model) {} }
         store.apply(AgentEvent(name: "PreToolUse", sessionID: "a", cwd: nil, toolName: "Bash"))
         #expect(sounds.lastPlayed == nil, "working is silent")

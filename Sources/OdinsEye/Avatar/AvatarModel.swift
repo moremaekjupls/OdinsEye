@@ -15,7 +15,7 @@ final class AvatarModel: ObservableObject {
     /// Показывать ли агента у чёлки вообще (переключатель в настройках). Выключенный,
     /// он не рисуется, не здоровается, не звучит и не открывает панель по «ушам»;
     /// чёлка остаётся просто чёлкой с её вкладками.
-    @Published private(set) var isEnabled = ConfigStore.shared.showAgent
+    @Published private(set) var isEnabled: Bool
     /// Есть ли вообще за кем следить и можно ли показывать: без сессий «ухо» пустое.
     @Published private(set) var isPresent = false
     private var hasSessions = false
@@ -44,8 +44,10 @@ final class AvatarModel: ObservableObject {
     init(
         store: AgentSessionStore, poses: [PeekyMood: PeekyPose]? = PeekyAssets.loadBundled(),
         dozeAfter: TimeInterval = AvatarModel.defaultDozeAfter,
-        sounds: PeekySounds = .shared
+        sounds: PeekySounds = .shared,
+        enabled: Bool = ConfigStore.shared.showAgent
     ) {
+        self.isEnabled = enabled
         engine = poses.map(PeekyEngine.init(poses:))
         self.dozeAfter = dozeAfter
         self.sounds = sounds

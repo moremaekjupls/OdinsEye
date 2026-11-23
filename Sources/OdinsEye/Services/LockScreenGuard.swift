@@ -45,4 +45,12 @@ enum LockScreenPolicy {
         let width = min(cardSize.width, screen.width * 0.9)
         return CGRect(x: screen.midX - width / 2, y: top - height, width: width, height: height)
     }
+
+    /// Рамка окна, когда обложка раскрыта: квадрат под тем же верхом, не ниже
+    /// нижней зоны. Верх и центр те же, поэтому обложка растёт из карточки.
+    static func coverFrame(from card: CGRect, on screen: CGRect, maxSide: CGFloat = 380) -> CGRect {
+        let floor = screen.minY + screen.height * reservedBottomFraction
+        let side = max(min(maxSide, card.maxY - floor, screen.width * 0.9), card.height)
+        return CGRect(x: card.midX - side / 2, y: card.maxY - side, width: side, height: side)
+    }
 }

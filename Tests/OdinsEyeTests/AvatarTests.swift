@@ -64,9 +64,19 @@ struct AvatarTests {
         #expect(AvatarModel.mood(for: [], hasPending: true) == .waiting)
     }
 
+    /// Выключенный в настройках агент не показывается, даже когда есть сессии.
+    @Test func aDisabledAgentStaysHidden() {
+        let store = store()
+        let model = AvatarModel(store: store, poses: Self.poses, enabled: false)
+        store.apply(AgentEvent(name: "PreToolUse", sessionID: "a", cwd: "/x/p", toolName: "Bash"))
+        #expect(!model.isShown && !model.isPresent)
+        model.setEnabled(true)
+        #expect(model.isShown)
+    }
+
     @Test func theModelFollowsTheStore() {
         let store = store()
-        let model = AvatarModel(store: store, poses: Self.poses)
+        let model = AvatarModel(store: store, poses: Self.poses, enabled: true)
         #expect(model.isShown == false)
 
         store.apply(AgentEvent(name: "PreToolUse", sessionID: "a", cwd: "/x/p", toolName: "Bash"))
@@ -85,7 +95,7 @@ struct AvatarTests {
 
     @Test func withoutPosesThereIsNoAvatar() {
         let store = store()
-        let model = AvatarModel(store: store, poses: nil)
+        let model = AvatarModel(store: store, poses: nil, enabled: true)
         store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
         #expect(model.engine == nil)
         #expect(model.isShown == false)
@@ -93,7 +103,7 @@ struct AvatarTests {
 
     @Test func anOpenPanelCoversTheIsland() {
         let store = store()
-        let model = AvatarModel(store: store, poses: Self.poses)
+        let model = AvatarModel(store: store, poses: Self.poses, enabled: true)
         store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
         #expect(model.isShown)
         model.setCovered(true)
@@ -104,7 +114,7 @@ struct AvatarTests {
 
     @Test func anIdlePeekyDozesOffAndAnEventWakesHim() async throws {
         let store = store()
-        let model = AvatarModel(store: store, poses: Self.poses, dozeAfter: 0.05)
+        let model = AvatarModel(store: store, poses: Self.poses, dozeAfter: 0.05, enabled: true)
         store.apply(AgentEvent(name: "SessionStart", sessionID: "a", cwd: nil, toolName: nil))
         #expect(model.mood == .awake)
         for _ in 0..<40 where model.mood != .asleep { try await Task.sleep(for: .milliseconds(25)) }

@@ -8,9 +8,11 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
     var lyrics = true
     var haptics = true
     var hideFromCapture = false
-    var glass = false
+    var glass = true
     /// Насколько стекло затемнено: 0 почти прозрачное, 1 почти чёрное.
     var glassTint = 0.6
+    /// То же для карточки на экране блокировки.
+    var lockGlassTint = 0.3
     var matchSongColor = false
     /// Сколько цвета обложки подмешивается к чёрному фону.
     var songColorStrength = 0.34
@@ -24,7 +26,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
     /// человек убрал сам.
     var hiddenTabs: [String]?
 
-    static let glassTintRange = 0.2...0.9
+    static let glassTintRange = 0.0...0.9
     static let songColorRange = 0.1...0.6
     static let openDelayRange = 0.0...0.5
 
@@ -42,6 +44,8 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? d.hideFromCapture
         glass = try c.decodeIfPresent(Bool.self, forKey: .glass) ?? d.glass
         glassTint = Self.clamp(try c.decodeIfPresent(Double.self, forKey: .glassTint) ?? d.glassTint, Self.glassTintRange)
+        lockGlassTint = Self.clamp(
+            try c.decodeIfPresent(Double.self, forKey: .lockGlassTint) ?? d.lockGlassTint, Self.glassTintRange)
         matchSongColor = try c.decodeIfPresent(Bool.self, forKey: .matchSongColor) ?? d.matchSongColor
         songColorStrength = Self.clamp(
             try c.decodeIfPresent(Double.self, forKey: .songColorStrength) ?? d.songColorStrength, Self.songColorRange)
@@ -75,7 +79,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 0.005 }
         return sounds == o.sounds && lyrics == o.lyrics && haptics == o.haptics
             && hideFromCapture == o.hideFromCapture && glass == o.glass
-            && near(glassTint, o.glassTint) && matchSongColor == o.matchSongColor
+            && near(glassTint, o.glassTint) && near(lockGlassTint, o.lockGlassTint) && matchSongColor == o.matchSongColor
             && near(songColorStrength, o.songColorStrength)
             && hideInFullscreen == o.hideInFullscreen && near(openDelay, o.openDelay)
             && focusOverlay == o.focusOverlay && showAgent == o.showAgent

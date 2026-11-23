@@ -37,12 +37,15 @@ final class ConfigStore: ObservableObject {
         /// Лёгкий отклик тачпада при открытии панели и смене вкладки.
         var haptics = true
         /// Панель из «жидкого стекла» (macOS 26+).
-        var glass = false
+        var glass = true
         /// Фон вкладки «Музыка» берёт цвет обложки.
         var matchSongColor = false
         /// Не раскрывать панель наведением поверх приложения в полноэкранном режиме.
         var hideInFullscreen = false
         var glassTint = 0.6
+        /// Затемнение стекла карточки на экране блокировки. Отдельно от панели:
+        /// на блокировке под карточкой обои, а не рабочий стол.
+        var lockGlassTint = 0.3
         var songColorStrength = 0.34
         var openDelay = 0.05
         /// Плашка у чёлки, когда включается или выключается Фокус.
@@ -81,6 +84,9 @@ final class ConfigStore: ObservableObject {
             hideInFullscreen = try c.decodeIfPresent(Bool.self, forKey: .hideInFullscreen) ?? d.hideInFullscreen
             glassTint = SettingsSnapshot.clamp(
                 try c.decodeIfPresent(Double.self, forKey: .glassTint) ?? d.glassTint, SettingsSnapshot.glassTintRange)
+            lockGlassTint = SettingsSnapshot.clamp(
+                try c.decodeIfPresent(Double.self, forKey: .lockGlassTint) ?? d.lockGlassTint,
+                SettingsSnapshot.glassTintRange)
             songColorStrength = SettingsSnapshot.clamp(
                 try c.decodeIfPresent(Double.self, forKey: .songColorStrength) ?? d.songColorStrength,
                 SettingsSnapshot.songColorRange)
@@ -95,7 +101,7 @@ final class ConfigStore: ObservableObject {
         }
     }
 
-    static let shared = ConfigStore()
+    static let shared = ConfigStore(file: ConfigStore.file, migratesLegacy: true)
 
     /// `~/Library/Application Support/OdinsEye/config.json`.
     static let file = Support.file("config.json")
@@ -107,9 +113,12 @@ final class ConfigStore: ObservableObject {
     @Published private(set) var fileBroken = false
 
     private var value: File
+    private let fileURL: URL
 
-    private init() {
-        if let data = try? Data(contentsOf: Self.file) {
+    /// Свой файл нужен тестам и проверке E2E: настоящий `config.json` они не трогают.
+    init(file: URL, migratesLegacy: Bool = false) {
+        self.fileURL = file
+        if let data = try? Data(contentsOf: file) {
             do {
                 value = try JSONDecoder().decode(File.self, from: data)
             } catch {
@@ -120,9 +129,10 @@ final class ConfigStore: ObservableObject {
         } else {
             // Nothing on disk yet, so nothing to protect — assembled from
             // whatever the old keys already say and written straight away.
-            value = Self.migrated()
+            value = migratesLegacy ? Self.migrated() : File()
             write(value)
         }
+        lastSaved = Self.dictionary(value)
     }
 
     // MARK: - Settings
@@ -219,6 +229,11 @@ final class ConfigStore: ObservableObject {
         set { value.glassTint = SettingsSnapshot.clamp(newValue, SettingsSnapshot.glassTintRange); persist() }
     }
 
+    var lockGlassTint: Double {
+        get { value.lockGlassTint }
+        set { value.lockGlassTint = SettingsSnapshot.clamp(newValue, SettingsSnapshot.glassTintRange); persist() }
+    }
+
     var songColorStrength: Double {
         get { value.songColorStrength }
         set { value.songColorStrength = SettingsSnapshot.clamp(newValue, SettingsSnapshot.songColorRange); persist() }
@@ -242,6 +257,7 @@ final class ConfigStore: ObservableObject {
         s.hideFromCapture = value.hideFromCapture
         s.glass = value.glass
         s.glassTint = value.glassTint
+        s.lockGlassTint = value.lockGlassTint
         s.matchSongColor = value.matchSongColor
         s.songColorStrength = value.songColorStrength
         s.hideInFullscreen = value.hideInFullscreen
@@ -260,6 +276,7 @@ final class ConfigStore: ObservableObject {
         value.hideFromCapture = s.hideFromCapture
         value.glass = s.glass
         value.glassTint = s.glassTint
+        value.lockGlassTint = s.lockGlassTint
         value.matchSongColor = s.matchSongColor
         value.songColorStrength = s.songColorStrength
         value.hideInFullscreen = s.hideInFullscreen
@@ -322,7 +339,47 @@ final class ConfigStore: ObservableObject {
         // Toggles in Settings read these properties through bindings; without
         // this, nothing tells SwiftUI the value moved.
         objectWillChange.send()
-        write(value)
+        mergeAndWrite()
+    }
+
+    /// Что лежало в файле, когда этот стор его читал или писал в последний раз.
+    private var lastSaved: [String: Any] = [:]
+
+    private static func dictionary(_ file: File) -> [String: Any] {
+        guard let data = try? JSONEncoder().encode(file),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        return object
+    }
+
+    /// Пишет в файл только то, что изменил этот экземпляр, поверх того, что в
+    /// нём лежит сейчас. Стор читает файл один раз при запуске; если рядом
+    /// работает второй экземпляр (установленное приложение и сборка из
+    /// исходников, оба в автозапуске), запись целиком стирала его настройки
+    /// старыми значениями. Ключи, которых эта версия не знает, тоже остаются.
+    private func mergeAndWrite() {
+        guard !fileBroken else { return }
+        let mine = Self.dictionary(value)
+        var disk: [String: Any]
+        if let data = try? Data(contentsOf: fileURL),
+           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            disk = object
+        } else {
+            disk = mine
+        }
+        for (key, new) in mine where !((lastSaved[key] as AnyObject?)?.isEqual(new) ?? false) {
+            disk[key] = new
+        }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: disk, options: [.prettyPrinted, .withoutEscapingSlashes, .sortedKeys]) else { return }
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            NSLog("OdinsEye: cannot write config.json: \(error.localizedDescription)")
+            return
+        }
+        // Дальше стор живёт с тем, что получилось после слияния.
+        if let merged = try? JSONDecoder().decode(File.self, from: data) { value = merged }
+        lastSaved = Self.dictionary(value)
     }
 
     /// Pretty-printed, and slashes left alone — same reason as
@@ -333,7 +390,7 @@ final class ConfigStore: ObservableObject {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         do {
-            try encoder.encode(file).write(to: Self.file, options: .atomic)
+            try encoder.encode(file).write(to: fileURL, options: .atomic)
         } catch {
             NSLog("OdinsEye: cannot write config.json: \(error.localizedDescription)")
         }

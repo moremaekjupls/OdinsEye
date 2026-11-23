@@ -29,6 +29,13 @@ struct GlassSurface<S: Shape>: View {
             } else {
                 glass
                 shape.fill(color.opacity(tint))
+                // Блик: свет падает сверху слева и гаснет к середине. Чем стекло
+                // прозрачнее, тем он заметнее, иначе прозрачное стекло плоское.
+                shape.fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.16 * (1 - tint) + 0.04), .clear],
+                        startPoint: .topLeading, endPoint: UnitPoint(x: 0.6, y: 0.5)))
+                    .allowsHitTesting(false)
             }
             shape.stroke(
                 LinearGradient(

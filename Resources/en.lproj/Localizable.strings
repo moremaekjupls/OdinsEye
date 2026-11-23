@@ -201,3 +201,7 @@
 "It uses private macOS functions and may stop working after an update. If the Mac ever hangs with it on, hold the power button: after the restart the card turns itself off." = "It uses private macOS functions and may stop working after an update. If the Mac ever hangs with it on, hold the power button: after the restart the card turns itself off.";
 "Agent" = "Agent";
 "Show Agent in Notch" = "Show Agent in Notch";
+"Notch Panel" = "Notch Panel";
+"Player" = "Player";
+"Show full cover" = "Show full cover";
+"Close cover" = "Close cover";

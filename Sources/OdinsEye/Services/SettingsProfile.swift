@@ -17,6 +17,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
     var hideInFullscreen = false
     /// Секунды, которые курсор стоит на чёлке до раскрытия панели.
     var openDelay = 0.05
+    var focusOverlay = true
     /// Выключенные вкладки по `Tab.rawValue`. nil значит «не трогать вкладки»:
     /// встроенный профиль «Обычный» не должен возвращать вкладку, которую
     /// человек убрал сам.
@@ -45,6 +46,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
             try c.decodeIfPresent(Double.self, forKey: .songColorStrength) ?? d.songColorStrength, Self.songColorRange)
         hideInFullscreen = try c.decodeIfPresent(Bool.self, forKey: .hideInFullscreen) ?? d.hideInFullscreen
         openDelay = Self.clamp(try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, Self.openDelayRange)
+        focusOverlay = try c.decodeIfPresent(Bool.self, forKey: .focusOverlay) ?? d.focusOverlay
         hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs)
     }
 
@@ -74,6 +76,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
             && near(glassTint, o.glassTint) && matchSongColor == o.matchSongColor
             && near(songColorStrength, o.songColorStrength)
             && hideInFullscreen == o.hideInFullscreen && near(openDelay, o.openDelay)
+            && focusOverlay == o.focusOverlay
             && hiddenTabs == o.hiddenTabs
     }
 }

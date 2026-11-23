@@ -4,7 +4,7 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case media, agents, shelf, clipboard, snippets, currency, settings
+        case media, agents, shelf, clipboard, snippets, currency
         var id: String { rawValue }
 
         var symbol: String {
@@ -15,7 +15,6 @@ final class NotchViewModel: ObservableObject {
             case .clipboard: return "list.clipboard.fill"
             case .snippets: return "pin.fill"
             case .currency: return "dollarsign.circle"
-            case .settings: return "gearshape.fill"
             }
         }
 
@@ -27,7 +26,6 @@ final class NotchViewModel: ObservableObject {
             case .clipboard: return localized("Clipboard")
             case .snippets: return localized("Snippets")
             case .currency: return localized("Currency")
-            case .settings: return localized("Settings")
             }
         }
 
@@ -37,15 +35,15 @@ final class NotchViewModel: ObservableObject {
             self == .currency || self == .snippets
         }
 
-        /// Every tab can be taken off the rail except the one the switches
-        /// live on: with Settings gone there would be no way back.
-        var canHide: Bool { self != .settings }
+        /// Every tab can be taken off the rail except Music: with nothing
+        /// left the panel would be empty, and Music is where it lands.
+        var canHide: Bool { self != .media }
 
         /// One rail, ordered by how often a tab is glanced at, Settings
         /// last. The second column on the right used to exist for the notes;
         /// with them gone it holds the panel's own switches instead — the pin
         /// and keep-awake, see `PanelControls`.
-        static let rail: [Tab] = [.media, .agents, .shelf, .clipboard, .snippets, .currency, .settings]
+        static let rail: [Tab] = [.media, .agents, .shelf, .clipboard, .snippets, .currency]
     }
 
     /// What every screen's panel adds up to, kept by `NotchController`: this
@@ -94,7 +92,7 @@ final class NotchViewModel: ObservableObject {
     var rail: [Tab] { Tab.rail.filter(isVisible) }
 
     /// Where to land when the tab on screen is the one being taken away.
-    private var firstVisibleTab: Tab { rail.first ?? .settings }
+    private var firstVisibleTab: Tab { rail.first ?? .media }
 
     func setVisible(_ target: Tab, _ visible: Bool) {
         guard target.canHide, isVisible(target) != visible else { return }
@@ -131,7 +129,7 @@ final class NotchViewModel: ObservableObject {
             currencies.start()
         case .agents:
             agents.start()
-        case .snippets, .settings:
+        case .snippets:
             break
         }
     }
@@ -143,7 +141,7 @@ final class NotchViewModel: ObservableObject {
         case .shelf: screenshotFolder.stop()
         case .currency: currencies.stop()
         case .agents: agents.stop()
-        case .snippets, .settings: break
+        case .snippets: break
         }
     }
 
@@ -209,6 +207,8 @@ final class NotchViewModel: ObservableObject {
     /// "Не спать": holds a power assertion while on. Lives here because the
     /// panel and the menu bar both switch it.
     let keepAwake = KeepAwake()
+    /// Какой режим Фокуса включён; рисует плашку `FocusBannerPanel`.
+    let focus = FocusStateMonitor()
     /// Shared by every pane that shows something worth not showing.
     let privacy = PrivacyMode()
 
@@ -301,6 +301,8 @@ final class NotchViewModel: ObservableObject {
 
         // The background of every tab that is on the rail, and of no other.
         started = true
+        focus.canShowBanner = { [weak self] in !(self?.isPanelActive ?? false) }
+        focus.start()
         for target in Tab.allCases where isVisible(target) { startBackground(of: target) }
         // The default tab may have been switched off in a previous session.
         if !isVisible(tab) { tab = firstVisibleTab }
@@ -308,6 +310,7 @@ final class NotchViewModel: ObservableObject {
 
     func stop() {
         started = false
+        focus.stop()
         for target in Tab.allCases { stopBackground(of: target) }
         // The last copy makes it to disk even when quitting a moment after it.
         clipboard.flush()

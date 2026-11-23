@@ -45,6 +45,8 @@ final class ConfigStore: ObservableObject {
         var glassTint = 0.6
         var songColorStrength = 0.34
         var openDelay = 0.05
+        /// Плашка у чёлки, когда включается или выключается Фокус.
+        var focusOverlay = true
         /// Профили, сохранённые пользователем. Готовые живут в коде.
         var profiles: [SettingsProfile] = []
 
@@ -77,6 +79,7 @@ final class ConfigStore: ObservableObject {
                 SettingsSnapshot.songColorRange)
             openDelay = SettingsSnapshot.clamp(
                 try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, SettingsSnapshot.openDelayRange)
+            focusOverlay = try c.decodeIfPresent(Bool.self, forKey: .focusOverlay) ?? d.focusOverlay
             // Битый профиль не должен ронять весь файл: читается по одному.
             profiles = (try? c.decodeIfPresent([SettingsProfile].self, forKey: .profiles)) ?? d.profiles
         }
@@ -181,6 +184,11 @@ final class ConfigStore: ObservableObject {
         set { value.hideInFullscreen = newValue; persist() }
     }
 
+    var focusOverlay: Bool {
+        get { value.focusOverlay }
+        set { value.focusOverlay = newValue; persist() }
+    }
+
     var glassTint: Double {
         get { value.glassTint }
         set { value.glassTint = SettingsSnapshot.clamp(newValue, SettingsSnapshot.glassTintRange); persist() }
@@ -213,6 +221,7 @@ final class ConfigStore: ObservableObject {
         s.songColorStrength = value.songColorStrength
         s.hideInFullscreen = value.hideInFullscreen
         s.openDelay = value.openDelay
+        s.focusOverlay = value.focusOverlay
         s.hiddenTabs = value.hiddenTabs.sorted()
         return s
     }
@@ -229,6 +238,7 @@ final class ConfigStore: ObservableObject {
         value.songColorStrength = s.songColorStrength
         value.hideInFullscreen = s.hideInFullscreen
         value.openDelay = s.openDelay
+        value.focusOverlay = s.focusOverlay
         persist()
     }
 

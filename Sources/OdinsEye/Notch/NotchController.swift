@@ -11,6 +11,7 @@ final class NotchController {
     private var vm: NotchViewModel?
     private var panel: NotchScreenPanel?
     private var avatarPanel: AvatarPanel?
+    private var focusBanner: FocusBannerPanel?
 
     func install() {
         let vm = NotchViewModel()
@@ -45,6 +46,8 @@ final class NotchController {
         panel = nil
         avatarPanel?.teardown()
         avatarPanel = nil
+        focusBanner?.teardown()
+        focusBanner = nil
     }
 
     /// From the menu bar. With no notch on screen — lid closed, external
@@ -56,6 +59,7 @@ final class NotchController {
     /// What the menu bar switches. Handed out rather than wrapped: the menu
     /// reads and writes them directly, and a controller method per switch
     /// would only forward.
+    var viewModel: NotchViewModel? { vm }
     var privacy: PrivacyMode? { vm?.privacy }
     var keepAwake: KeepAwake? { vm?.keepAwake }
 
@@ -77,6 +81,8 @@ final class NotchController {
         panel = nil
         avatarPanel?.teardown()
         avatarPanel = nil
+        focusBanner?.teardown()
+        focusBanner = nil
         // The panel is gone; so is anything it was holding open.
         vm.isPinned = false
         if let geometry {
@@ -84,6 +90,7 @@ final class NotchController {
             next.state.onChange = { [weak self] in self?.refreshShared() }
             panel = next
             avatarPanel = AvatarPanel(geometry: geometry, model: vm.avatar)
+            focusBanner = FocusBannerPanel(geometry: geometry, monitor: vm.focus)
         }
         refreshShared()
     }

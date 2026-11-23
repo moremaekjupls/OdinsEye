@@ -163,3 +163,30 @@
 "Glass Tint" = "Затемнение стекла";
 "Color Strength" = "Сила цвета";
 "Open Delay" = "Задержка раскрытия";
+
+/* Settings window */
+"Caffeine" = "Кофеин";
+"Search" = "Поиск";
+"Notch" = "Чёлка";
+"Extras" = "Дополнительно";
+"Media" = "Плеер";
+"Tabs" = "Вкладки";
+"Privacy" = "Приватность";
+"Lyrics" = "Тексты";
+"Color" = "Цвет";
+"Panel" = "Панель";
+"Feedback" = "Отклик";
+"Visibility" = "Видимость";
+"Duration" = "Длительность";
+"The glass panel needs macOS 26 or later." = "Стеклянная панель работает на macOS 26 и новее.";
+
+/* Focus */
+"Focus" = "Фокус";
+"Focus Overlay" = "Плашка Фокуса";
+"Status" = "Состояние";
+"%@ Off" = "%@: выкл.";
+"Checking…" = "Проверяю…";
+"Can't read Focus state. Allow Odin's Eye in Full Disk Access." = "Не могу прочитать состояние Фокуса. Разрешите Odin's Eye полный доступ к диску.";
+"Open Full Disk Access Settings" = "Открыть «Полный доступ к диску»";
+"Focus is on: %@" = "Фокус включён: %@";
+"No Focus is on" = "Фокус выключен";

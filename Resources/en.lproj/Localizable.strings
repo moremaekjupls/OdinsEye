@@ -164,3 +164,30 @@
 "Glass Tint" = "Glass Tint";
 "Color Strength" = "Color Strength";
 "Open Delay" = "Open Delay";
+
+/* Settings window */
+"Caffeine" = "Caffeine";
+"Search" = "Search";
+"Notch" = "Notch";
+"Extras" = "Extras";
+"Media" = "Media";
+"Tabs" = "Tabs";
+"Privacy" = "Privacy";
+"Lyrics" = "Lyrics";
+"Color" = "Color";
+"Panel" = "Panel";
+"Feedback" = "Feedback";
+"Visibility" = "Visibility";
+"Duration" = "Duration";
+"The glass panel needs macOS 26 or later." = "The glass panel needs macOS 26 or later.";
+
+/* Focus */
+"Focus" = "Focus";
+"Focus Overlay" = "Focus Overlay";
+"Status" = "Status";
+"%@ Off" = "%@ Off";
+"Checking…" = "Checking…";
+"Can't read Focus state. Allow Odin's Eye in Full Disk Access." = "Can't read Focus state. Allow Odin's Eye in Full Disk Access.";
+"Open Full Disk Access Settings" = "Open Full Disk Access Settings";
+"Focus is on: %@" = "Focus is on: %@";
+"No Focus is on" = "No Focus is on";

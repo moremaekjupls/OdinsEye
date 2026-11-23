@@ -110,8 +110,6 @@ struct NotchContentView: View {
             counter(vm.snippets.items.count)
         case .currency:
             CurrencyRateDate(currencies: vm.currencies)
-        case .settings:
-            EmptyView()
         }
     }
 
@@ -131,7 +129,7 @@ struct NotchContentView: View {
         HStack(spacing: 14) {
             Rail(vm: vm, panel: panel, tabs: vm.rail)
             panes
-            PanelControls(vm: vm, keepAwake: vm.keepAwake, panel: panel)
+            PanelControls(vm: vm, panel: panel)
         }
         .padding(.horizontal, 14)
         // The body's height is measured from this same number, so the two
@@ -182,8 +180,6 @@ struct NotchContentView: View {
             SnippetsPane(snippets: vm.snippets, privacy: vm.privacy, wantsKeyboard: $panel.wantsKeyboard)
         case .currency:
             CurrencyPane(currencies: vm.currencies, wantsKeyboard: $panel.wantsKeyboard)
-        case .settings:
-            SettingsPane(vm: vm, shelf: vm.shelf, screenshots: vm.screenshotFolder, keepAwake: vm.keepAwake)
         }
     }
 }
@@ -319,7 +315,6 @@ private struct Rail: View {
 /// tabs — lit while on.
 private struct PanelControls: View {
     @ObservedObject var vm: NotchViewModel
-    @ObservedObject var keepAwake: KeepAwake
     @ObservedObject var panel: PanelState
     @State private var hovered: String?
 
@@ -334,34 +329,11 @@ private struct PanelControls: View {
                 vm.isPinned.toggle()
             }
 
-            control(
-                id: "cup",
-                symbol: keepAwake.isActive ? "cup.and.saucer.fill" : "cup.and.saucer",
-                isOn: keepAwake.isActive,
-                help: localized("Keep Awake")
-            ) {
-                keepAwake.toggle()
-            }
-            .contextMenu { KeepAwakeMenu(keepAwake: keepAwake) }
-
-            // Time left, under the cup. A minute is the finest step it shows,
-            // so it is redrawn once a minute and not on every frame.
-            if keepAwake.isActive {
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(verbatim: keepAwake.remainingText(at: context.date) ?? "")
-                        .font(.panelMini.monospacedDigit())
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(width: 30)
-            }
             Spacer(minLength: 0)
         }
         .frame(width: 30)
         .frame(height: panel.geometry.standardContentHeight, alignment: .top)
         .animation(Theme.contentAnimation, value: vm.isPinned)
-        .animation(Theme.contentAnimation, value: keepAwake.isActive)
     }
 
     /// `id` rather than the symbol for hover: the symbol changes on click, and
@@ -384,23 +356,5 @@ private struct PanelControls: View {
             if inside { hovered = id } else if hovered == id { hovered = nil }
         }
         .help(help)
-    }
-}
-
-/// Durations and the display option — the right-click menu of the cup, and
-/// the same choices the menu bar offers.
-struct KeepAwakeMenu: View {
-    @ObservedObject var keepAwake: KeepAwake
-
-    var body: some View {
-        ForEach(KeepAwake.Duration.allCases) { duration in
-            Button(duration.title) { keepAwake.start(duration) }
-        }
-        Divider()
-        Toggle(localized("Keep Display On"), isOn: $keepAwake.keepsDisplayOn)
-        if keepAwake.isActive {
-            Divider()
-            Button(localized("Turn Off")) { keepAwake.stop() }
-        }
     }
 }

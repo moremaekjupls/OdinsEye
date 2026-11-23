@@ -4,26 +4,27 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var controller: NotchController?
-    /// Shown only while "Не спать" is on — see `installStatusItem`.
     private var statusItem: NSStatusItem?
+    private var caffeineItem: NSMenuItem?
     private var headerItem: NSMenuItem?
     private var keepAwakeDurationItems: [KeepAwake.Duration: NSMenuItem] = [:]
     private var keepAwakeDisplayItem: NSMenuItem?
-    private var privacyItem: NSMenuItem?
-    private var privacyAllItem: NSMenuItem?
-    private var privacySectionItems: [PrivacyMode.Section: NSMenuItem] = [:]
+    private let settingsWindow = SettingsWindowController()
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller = NotchController()
         controller?.install()
         installStatusItem()
-        // The cup is the mode itself: it appears when "Не спать" turns on,
-        // whoever turned it on, and leaves when it ends.
+        // `OdinsEye --settings`: opens the window at launch, for checking it
+        // without hunting for the menu bar icon.
+        if CommandLine.arguments.contains("--settings") { openSettings() }
+        // The icon turns into a cup while "Не спать" is on, whoever turned it
+        // on, so the mode is visible without opening anything.
         controller?.keepAwake?.$isActive
             .removeDuplicates()
             .sink { [weak self] active in
-                MainActor.assumeIsolated { self?.statusItem?.isVisible = active }
+                MainActor.assumeIsolated { self?.showKeepAwake(active) }
             }
             .store(in: &cancellables)
     }
@@ -43,19 +44,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Menu bar item
 
-    /// The app lives in the notch, not in the menu bar. The one thing worth a
-    /// place there is a mode that changes how the Mac behaves while nobody is
-    /// looking at the panel — "Не спать" — so the item exists only while it is
-    /// on, as a cup, and its menu opens on that mode's controls.
+    /// The one place outside the notch: Settings, Caffeine and Quit. The
+    /// panel itself stays about what is glanced at; configuration and the
+    /// mode that changes how the Mac behaves live here.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let image = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: localized("Keep Awake"))
-        image?.isTemplate = true
-        item.button?.image = image
-        item.isVisible = false
+        item.button?.image = statusImage(awake: false)
 
         let menu = NSMenu()
         menu.delegate = self
+        menu.autoenablesItems = false
+
+        let settings = NSMenuItem(title: localized("Settings"), action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
+
+        let caffeine = NSMenuItem(title: localized("Caffeine"), action: nil, keyEquivalent: "")
+        caffeine.submenu = makeCaffeineMenu()
+        menu.addItem(caffeine)
+        caffeineItem = caffeine
+
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        item.menu = menu
+        statusItem = item
+    }
+
+    private func statusImage(awake: Bool) -> NSImage? {
+        let name = awake ? "cup.and.saucer.fill" : "eye"
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: "Odin's Eye")
+        image?.isTemplate = true
+        return image
+    }
+
+    private func showKeepAwake(_ active: Bool) {
+        statusItem?.button?.image = statusImage(awake: active)
+    }
+
+    private func makeCaffeineMenu() -> NSMenu {
+        let menu = NSMenu()
         menu.autoenablesItems = false
 
         // "Не спать — 1:23", filled in when the menu opens.
@@ -81,53 +112,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let off = NSMenuItem(title: localized("Turn Off"), action: #selector(turnOffKeepAwake), keyEquivalent: "")
         off.target = self
         menu.addItem(off)
-
-        menu.addItem(.separator())
-        let open = NSMenuItem(title: localized("Open Panel"), action: #selector(togglePanel), keyEquivalent: "")
-        open.target = self
-        menu.addItem(open)
-        menu.addItem(makePrivacyItem())
-
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-
-        item.menu = menu
-        statusItem = item
-    }
-
-    /// Sits in the menu because it is the one people reach for in a hurry,
-    /// with the camera already running. "All" comes first and is what most
-    /// people will ever touch; the sections below are for when that is too much.
-    private func makePrivacyItem() -> NSMenuItem {
-        let privacy = NSMenuItem(title: localized("Hide Contents"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        submenu.autoenablesItems = false
-
-        let all = NSMenuItem(title: localized("All"), action: #selector(togglePrivacyAll), keyEquivalent: "")
-        all.target = self
-        submenu.addItem(all)
-        privacyAllItem = all
-        submenu.addItem(.separator())
-
-        for section in PrivacyMode.Section.allCases {
-            let entry = NSMenuItem(title: section.title, action: #selector(togglePrivacySection(_:)), keyEquivalent: "")
-            entry.target = self
-            entry.representedObject = section.rawValue
-            submenu.addItem(entry)
-            privacySectionItems[section] = entry
-        }
-        privacy.submenu = submenu
-        privacyItem = privacy
-        return privacy
+        return menu
     }
 
     /// Everything shown is re-read when the menu opens, not kept fresh in
     /// between: a menu nobody is looking at deserves no bookkeeping.
     func menuWillOpen(_ menu: NSMenu) {
         refreshKeepAwakeItems()
-        refreshPrivacyItems()
     }
 
     // MARK: - Keep awake
@@ -166,39 +157,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Panel, privacy, quit
 
-    @objc private func togglePanel() {
-        controller?.toggle()
+    @objc private func openSettings() {
+        guard let vm = controller?.viewModel else { return }
+        settingsWindow.show(vm: vm)
     }
 
     @objc private func quit() {
         NSApp.terminate(nil)
-    }
-
-    @objc private func togglePrivacyAll(_ sender: NSMenuItem) {
-        guard let privacy = controller?.privacy else { return }
-        // Anything short of everything means "turn the rest on too"; only a
-        // full house turns them all off.
-        privacy.setCoveringAll(!privacy.coversAll)
-        refreshPrivacyItems()
-    }
-
-    @objc private func togglePrivacySection(_ sender: NSMenuItem) {
-        guard let privacy = controller?.privacy,
-              let raw = sender.representedObject as? String,
-              let section = PrivacyMode.Section(rawValue: raw) else { return }
-        privacy.setCovering(section, !privacy.covers(section))
-        refreshPrivacyItems()
-    }
-
-    /// The parent item carries the summary: a tick when every section is
-    /// covered, a dash when some are.
-    private func refreshPrivacyItems() {
-        guard let privacy = controller?.privacy else { return }
-        privacyItem?.state = privacy.coversAll ? .on : (privacy.coversAny ? .mixed : .off)
-        privacyAllItem?.state = privacy.coversAll ? .on : .off
-        for (section, entry) in privacySectionItems {
-            entry.state = privacy.covers(section) ? .on : .off
-        }
     }
 }
 

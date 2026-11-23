@@ -45,12 +45,20 @@ struct GlassSurface<S: Shape>: View {
         }
     }
 
+    /// `glassEffect` есть только в SDK macOS 26 (Swift 6.2 и новее). `#available`
+    /// решает, что делать при запуске, но не спасает от ошибки компиляции на
+    /// старом SDK, поэтому сам вызов закрыт ещё и проверкой компилятора. Раннер
+    /// CI собирает старым Xcode и получает материал.
     @ViewBuilder
     private var glass: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             Color.clear.glassEffect(.regular, in: shape)
         } else {
             shape.fill(.ultraThinMaterial)
         }
+        #else
+        shape.fill(.ultraThinMaterial)
+        #endif
     }
 }

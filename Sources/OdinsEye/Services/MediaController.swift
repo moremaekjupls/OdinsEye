@@ -357,6 +357,14 @@ final class MediaController: ObservableObject {
         ticker = timer
     }
 
+    /// Позиция прямо сейчас, не дожидаясь тиков: у фонового приложения без
+    /// окон таймер опаздывает, а экрану блокировки нужна точная позиция.
+    func livePosition() -> TimeInterval {
+        guard let anchor, isPlaying else { return position }
+        let value = anchor.position + Date().timeIntervalSince(anchor.at)
+        return duration > 0 ? min(value, duration) : value
+    }
+
     private func tick() {
         guard let anchor, isPlaying else { return }
         let value = anchor.position + Date().timeIntervalSince(anchor.at)

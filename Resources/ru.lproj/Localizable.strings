@@ -190,3 +190,11 @@
 "Open Full Disk Access Settings" = "Открыть «Полный доступ к диску»";
 "Focus is on: %@" = "Фокус включён: %@";
 "No Focus is on" = "Фокус выключен";
+
+/* Lock screen */
+"Lock Screen" = "Экран блокировки";
+"Music on Lock Screen" = "Музыка на экране блокировки";
+"Turned off automatically: the last session ended while the card was on the lock screen (a hang, a restart or a crash). Turn it on again only if you want to try once more." = "Выключено автоматически: прошлый сеанс закончился, пока карточка была на экране блокировки (зависание, перезагрузка или падение). Включайте снова, только если хотите попробовать ещё раз.";
+"Shows a small card under the system clock while the Mac is locked. It does not take the mouse or keyboard, buttons are not on it, and the password field stays the system's." = "Показывает маленькую карточку под системными часами, пока Mac заблокирован. Она не ловит мышь и клавиатуру, кнопок на ней нет, поле пароля остаётся системным.";
+"Unavailable: this macOS does not provide what the card needs." = "Недоступно: этот macOS не даёт того, что нужно карточке.";
+"It uses private macOS functions and may stop working after an update. If the Mac ever hangs with it on, hold the power button: after the restart the card turns itself off." = "Использует закрытые функции macOS и может перестать работать после обновления. Если Mac завис с ней, удерживайте кнопку питания: после перезагрузки карточка выключится сама.";

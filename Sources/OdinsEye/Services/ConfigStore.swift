@@ -47,6 +47,11 @@ final class ConfigStore: ObservableObject {
         var openDelay = 0.05
         /// Плашка у чёлки, когда включается или выключается Фокус.
         var focusOverlay = true
+        /// Карточка музыки на экране блокировки. По умолчанию выключена и в
+        /// профили не входит: профиль не должен включать её сам.
+        var lockScreenPlayer = false
+        /// Функцию выключил аварийный выход (после зависания или падения).
+        var lockScreenTripped = false
         /// Профили, сохранённые пользователем. Готовые живут в коде.
         var profiles: [SettingsProfile] = []
 
@@ -80,6 +85,8 @@ final class ConfigStore: ObservableObject {
             openDelay = SettingsSnapshot.clamp(
                 try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, SettingsSnapshot.openDelayRange)
             focusOverlay = try c.decodeIfPresent(Bool.self, forKey: .focusOverlay) ?? d.focusOverlay
+            lockScreenPlayer = try c.decodeIfPresent(Bool.self, forKey: .lockScreenPlayer) ?? d.lockScreenPlayer
+            lockScreenTripped = try c.decodeIfPresent(Bool.self, forKey: .lockScreenTripped) ?? d.lockScreenTripped
             // Битый профиль не должен ронять весь файл: читается по одному.
             profiles = (try? c.decodeIfPresent([SettingsProfile].self, forKey: .profiles)) ?? d.profiles
         }
@@ -182,6 +189,16 @@ final class ConfigStore: ObservableObject {
     var hideInFullscreen: Bool {
         get { value.hideInFullscreen }
         set { value.hideInFullscreen = newValue; persist() }
+    }
+
+    var lockScreenPlayer: Bool {
+        get { value.lockScreenPlayer }
+        set { value.lockScreenPlayer = newValue; persist() }
+    }
+
+    var lockScreenTripped: Bool {
+        get { value.lockScreenTripped }
+        set { value.lockScreenTripped = newValue; persist() }
     }
 
     var focusOverlay: Bool {

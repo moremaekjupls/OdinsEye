@@ -38,7 +38,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 // MARK: - Pages
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, media, appearance, behavior, focus, tabs, privacy, caffeine, screenshots, configuration
+    case general, media, lockScreen, appearance, behavior, focus, tabs, privacy, caffeine, screenshots, configuration
 
     var id: String { rawValue }
 
@@ -46,6 +46,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return localized("General")
         case .media: return localized("Media")
+        case .lockScreen: return localized("Lock Screen")
         case .appearance: return localized("Appearance")
         case .behavior: return localized("Behavior")
         case .focus: return localized("Focus")
@@ -61,6 +62,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "gearshape"
         case .media: return "play.fill"
+        case .lockScreen: return "lock.fill"
         case .appearance: return "square.stack.3d.up"
         case .behavior: return "hand.tap"
         case .focus: return "moon.fill"
@@ -75,7 +77,7 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
     /// Группы боковой панели; у «Общих» заголовка нет.
     static let groups: [(title: String?, pages: [SettingsPage])] = [
         (nil, [.general]),
-        (localized("Music"), [.media]),
+        (localized("Music"), [.media, .lockScreen]),
         (localized("Notch"), [.appearance, .behavior, .focus, .tabs, .privacy]),
         (localized("Extras"), [.caffeine, .screenshots]),
         (localized("Odin's Eye"), [.configuration]),
@@ -323,6 +325,7 @@ private struct SettingsPageView: View {
         switch page {
         case .general: general
         case .media: media
+        case .lockScreen: lockScreenPage
         case .appearance: appearance
         case .behavior: behavior
         case .focus: focusPage
@@ -439,6 +442,42 @@ private struct SettingsPageView: View {
                     title: localized("Color Strength"), value: number(\.songColorStrength),
                     range: SettingsSnapshot.songColorRange)
             }
+        }
+    }
+
+    // MARK: Lock Screen
+
+    @ViewBuilder private var lockScreenPage: some View {
+        if config.lockScreenTripped {
+            Card {
+                Text(localized("Turned off automatically: the last session ended while the card was on the lock screen (a hang, a restart or a crash). Turn it on again only if you want to try once more."))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.orange)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        Card {
+            ToggleRow(
+                title: localized("Music on Lock Screen"),
+                isOn: Binding(get: { vm.lockScreen.isEnabled }, set: { vm.lockScreen.setEnabled($0) })
+            )
+            .disabled(!vm.lockScreen.isAvailable)
+        }
+        Card(localized("Status")) {
+            Text(vm.lockScreen.isAvailable
+                 ? localized("Shows a small card under the system clock while the Mac is locked. It does not take the mouse or keyboard, buttons are not on it, and the password field stays the system's.")
+                 : localized("Unavailable: this macOS does not provide what the card needs."))
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            RowDivider()
+            Text(localized("It uses private macOS functions and may stop working after an update. If the Mac ever hangs with it on, hold the power button: after the restart the card turns itself off."))
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

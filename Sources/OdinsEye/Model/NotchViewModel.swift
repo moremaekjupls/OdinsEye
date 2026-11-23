@@ -209,6 +209,8 @@ final class NotchViewModel: ObservableObject {
     let keepAwake = KeepAwake()
     /// Какой режим Фокуса включён; рисует плашку `FocusBannerPanel`.
     let focus = FocusStateMonitor()
+    /// Карточка музыки на экране блокировки (по умолчанию выключена).
+    let lockScreen: LockScreenPlayer
     /// Shared by every pane that shows something worth not showing.
     let privacy = PrivacyMode()
 
@@ -226,6 +228,9 @@ final class NotchViewModel: ObservableObject {
         let agents = AgentSessionStore()
         self.agents = agents
         self.avatar = AvatarModel(store: agents)
+        self.lockScreen = LockScreenPlayer(
+            media: media, lyrics: lyrics,
+            screen: { NotchGeometry.notched()?.screen ?? NSScreen.main })
 
         // The panel header reads through to the stores — counters, the source
         // name, the equalizer. Nested ObservableObjects do not propagate on
@@ -303,6 +308,25 @@ final class NotchViewModel: ObservableObject {
         started = true
         focus.canShowBanner = { [weak self] in !(self?.isPanelActive ?? false) }
         focus.start()
+        // Метка от прошлого сеанса значит, что окно на блокировке не было снято:
+        // зависание, перезагрузка или падение. Функция выключается сама.
+        let mark = LockScreenGuard()
+        if mark.isArmed {
+            ConfigStore.shared.lockScreenPlayer = false
+            ConfigStore.shared.lockScreenTripped = true
+            mark.disarm()
+            lockScreen.setEnabled(false)
+        }
+        // Пока экран заблокирован, панель закрыта, а тексту песни нужно грузиться.
+        lockScreen.onLockChange = { [weak self] locked in
+            guard let self else { return }
+            if locked {
+                self.lyrics.setWanted(true)
+            } else {
+                self.lyrics.setWanted(self.isPanelActive && self.tab == .media && self.isVisible(.media))
+            }
+        }
+        lockScreen.start()
         for target in Tab.allCases where isVisible(target) { startBackground(of: target) }
         // The default tab may have been switched off in a previous session.
         if !isVisible(tab) { tab = firstVisibleTab }
@@ -311,6 +335,7 @@ final class NotchViewModel: ObservableObject {
     func stop() {
         started = false
         focus.stop()
+        lockScreen.stop()
         for target in Tab.allCases { stopBackground(of: target) }
         // The last copy makes it to disk even when quitting a moment after it.
         clipboard.flush()

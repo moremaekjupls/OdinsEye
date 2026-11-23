@@ -49,6 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// mode that changes how the Mac behaves live here.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // Старая версия прятала значок (`isVisible = false`), и macOS запомнила
+        // это в настройках приложения: без явного `true` значок не появится.
+        item.isVisible = true
         item.button?.image = statusImage(awake: false)
 
         let menu = NSMenu()
@@ -74,11 +77,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem = item
     }
 
+    /// Значок приложения; пока включён «кофеин», вместо него чашка.
     private func statusImage(awake: Bool) -> NSImage? {
-        let name = awake ? "cup.and.saucer.fill" : "eye"
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: "Odin's Eye")
-        image?.isTemplate = true
-        return image
+        if awake {
+            let cup = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: localized("Caffeine"))
+            cup?.isTemplate = true
+            return cup
+        }
+        if let icon = NSApp.applicationIconImage?.copy() as? NSImage {
+            icon.size = NSSize(width: 18, height: 18)
+            icon.isTemplate = false
+            return icon
+        }
+        let eye = NSImage(systemSymbolName: "eye", accessibilityDescription: "Odin's Eye")
+        eye?.isTemplate = true
+        return eye
     }
 
     private func showKeepAwake(_ active: Bool) {

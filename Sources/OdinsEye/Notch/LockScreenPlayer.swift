@@ -33,8 +33,7 @@ final class LockScreenPlayer: ObservableObject {
     private var activity: NSObjectProtocol?
     /// Раскрытая обложка: окно растёт под неё и сжимается обратно.
     let cover = LockCoverState()
-    private(set) var cardFrame: CGRect = .zero
-    private var screenFrame: CGRect = .zero
+    private(set) var layout: LockScreenPolicy.Layout?
 
     /// Зовётся при каждой смене блокировки: тексту песни нужно загружаться,
     /// пока панель закрыта.
@@ -155,14 +154,12 @@ final class LockScreenPlayer: ObservableObject {
         guard let screen = screen(), let space = SkyLightSpace() else { return }
         // Метка первой: если дальше что-то пойдёт не так, она останется.
         guardMark.arm()
-        let frame = LockScreenPolicy.frame(on: screen.frame)
+        let laidOut = LockScreenPolicy.layout(on: screen.frame)
+        let frame = laidOut.collapsedFrame
         // Одно окно: карточка с кнопками. Ничего больше на блокировке не рисуется.
-        cover.expanded = false
-        cardFrame = frame
-        screenFrame = screen.frame
+        layout = laidOut
         let card = LockWindow(contentRect: frame, interactive: true)
-        let host = FirstMouseHostingView(
-            rootView: LockControlsView(media: media, lyrics: lyrics, cover: cover, cardHeight: frame.height))
+        let host = FirstMouseHostingView(rootView: LockControlsView(cover: cover, media: media, lyrics: lyrics, layout: laidOut))
         host.frame = CGRect(origin: .zero, size: frame.size)
         host.autoresizingMask = [.width, .height]
         card.contentView = host
@@ -180,15 +177,13 @@ final class LockScreenPlayer: ObservableObject {
     /// без SkyLight и без метки. Нужна, чтобы смотреть дизайн, не блокируя Mac.
     func showPreview() {
         guard let screen = screen() else { return }
-        let size = LockScreenPolicy.cardSize
-        let frame = CGRect(x: screen.frame.midX - size.width / 2, y: screen.frame.midY - size.height / 2,
-                           width: size.width, height: size.height)
-        cover.expanded = false
-        cardFrame = frame
-        screenFrame = screen.frame
+        var laidOut = LockScreenPolicy.layout(on: screen.frame)
+        // Посреди экрана, а не под часами: смотреть дизайн, не блокируя Mac.
+        laidOut.frame.origin.y = screen.frame.midY - laidOut.frame.height / 2
+        layout = laidOut
+        let frame = laidOut.collapsedFrame
         let card = LockWindow(contentRect: frame, interactive: true)
-        let host = FirstMouseHostingView(
-            rootView: LockControlsView(media: media, lyrics: lyrics, cover: cover, cardHeight: frame.height))
+        let host = FirstMouseHostingView(rootView: LockControlsView(cover: cover, media: media, lyrics: lyrics, layout: laidOut))
         host.frame = CGRect(origin: .zero, size: frame.size)
         host.autoresizingMask = [.width, .height]
         card.contentView = host
@@ -196,27 +191,21 @@ final class LockScreenPlayer: ObservableObject {
         card.setFrame(frame, display: false)
         card.orderFrontRegardless()
         previewWindow = card
-        // `--lock-cover`: сразу с раскрытой обложкой, чтобы смотреть её без мыши.
-        if CommandLine.arguments.contains("--lock-cover") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                MainActor.assumeIsolated { withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) { self?.cover.expanded = true } }
-            }
-        }
     }
 
     private(set) var previewWindow: NSPanel?
 
     /// Раскрытие растит окно сразу (оно прозрачное, пустое место не видно), а
-    /// сжатие ждёт, пока обложка вернётся в карточку: иначе её обрежет окно.
+    /// сжатие ждёт, пока обложка уйдёт: иначе её обрежет окно.
     private func resizeForCover(_ expanded: Bool) {
-        guard let window = panels.first ?? previewWindow, cardFrame != .zero else { return }
+        guard let window = panels.first ?? previewWindow, let layout else { return }
         if expanded {
-            window.setFrame(LockScreenPolicy.coverFrame(from: cardFrame, on: screenFrame), display: true)
+            window.setFrame(layout.frame, display: true)
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
                 MainActor.assumeIsolated {
-                    guard let self, let window, !self.cover.expanded else { return }
-                    window.setFrame(self.cardFrame, display: true)
+                    guard let self, let window, !self.cover.expanded, let layout = self.layout else { return }
+                    window.setFrame(layout.collapsedFrame, display: true)
                 }
             }
         }

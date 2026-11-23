@@ -82,23 +82,23 @@ enum E2E {
         vm.avatar.setEnabled(true)
         check("agent flag back", vm.avatar.isEnabled && config.showAgent == true)
 
-        // 4. Обложка: нажатие раскрывает окно, второе возвращает.
+        // 4. Раскладка блокировки: обложка над плеером, всё выше зоны пароля.
         vm.lockScreen.showPreview()
         await sleep(0.6)
-        guard let window = vm.lockScreen.previewWindow else { check("preview window exists", false); return }
-        let card = vm.lockScreen.cardFrame
-        check("card at card frame", near(window.frame, card), "\(window.frame) vs \(card)")
-        shot(window, "card")
+        guard let window = vm.lockScreen.previewWindow, let layout = vm.lockScreen.layout else {
+            check("preview window exists", false); return
+        }
+        check("starts as player only", near(window.frame, layout.collapsedFrame), "\(window.frame)")
+        check("cover fits", layout.coverSide >= LockScreenPolicy.minCover, "cover \(layout.coverSide)")
+        shot(window, "player")
 
-        let artwork = CGPoint(x: 22 + 31, y: window.frame.height - 20 - 31)
-        await click(window, at: artwork)
+        // Нажатие на маленькую обложку выдвигает большую, второе нажатие убирает.
+        await click(window, at: CGPoint(x: 20 + 23, y: window.frame.height - 14 - 23))
         await sleep(0.7)
-        let expanded = LockScreenPolicy.coverFrame(from: card, on: window.screen?.frame ?? card)
-        check("click expands cover", vm.lockScreen.cover.expanded && near(window.frame, expanded), "\(window.frame)")
+        check("tap shows big cover", vm.lockScreen.cover.expanded && near(window.frame, layout.frame), "\(window.frame)")
         shot(window, "cover")
-
-        await click(window, at: CGPoint(x: window.frame.width / 2, y: window.frame.height / 2))
+        await click(window, at: CGPoint(x: window.frame.width / 2, y: window.frame.height - 40))
         await sleep(1.2)
-        check("click collapses cover", !vm.lockScreen.cover.expanded && near(window.frame, card), "\(window.frame)")
+        check("tap hides big cover", !vm.lockScreen.cover.expanded && near(window.frame, layout.collapsedFrame), "\(window.frame)")
     }
 }

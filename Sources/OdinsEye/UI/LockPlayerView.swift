@@ -13,111 +13,124 @@ final class LockCoverState: ObservableObject {
     @Published var expanded = false
 }
 
+/// Экран блокировки как у плеера на iPhone: компактная стеклянная таблетка с
+/// маленькой обложкой слева. Нажатие на неё выдвигает большую обложку сверху,
+/// таблетка при этом уходит вниз; ещё одно нажатие убирает обложку.
+/// Единственное окно на блокировке, и оно принимает только нажатия на кнопки.
 struct LockControlsView: View {
+    @ObservedObject var cover: LockCoverState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var media: MediaController
     @ObservedObject var lyrics: LyricsStore
-    @ObservedObject var cover: LockCoverState
     @ObservedObject private var config = ConfigStore.shared
-    /// Высота свёрнутой карточки: окно при раскрытии становится больше, а карточка
-    /// не должна растягиваться вслед за ним.
-    let cardHeight: CGFloat
-    @Namespace private var space
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let layout: LockScreenPolicy.Layout
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 34, style: .continuous) }
+    private var pill: RoundedRectangle { RoundedRectangle(cornerRadius: 28, style: .continuous) }
+    private var coverShape: RoundedRectangle { RoundedRectangle(cornerRadius: 22, style: .continuous) }
 
-    /// Пружина без отскока: обложка растёт из карточки и возвращается тем же путём,
-    /// и её можно перехватить на середине. Без анимации движения: короткое затухание.
+    /// Пружина без отскока: обложка и таблетка движутся одним жестом и могут
+    /// быть перехвачены на середине. Без анимации движения: короткое затухание.
     private var motion: Animation {
         reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.42, dampingFraction: 0.9)
     }
 
     private func toggleCover() {
+        guard layout.coverSide > 0 else { return }
         tapLog.notice("tap: cover expanded=\(!cover.expanded, privacy: .public)")
         withAnimation(motion) { cover.expanded.toggle() }
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            if cover.expanded {
-                expandedCover
-            } else {
-                card
-            }
+        VStack(spacing: LockScreenPolicy.gap) {
+            if cover.expanded, layout.coverSide > 0 { bigCover }
+            player
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    // MARK: - Раскрытая обложка
+    // MARK: - Обложка
 
-    private var expandedCover: some View {
-        Button(action: toggleCover) {
-            artworkImage
-                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-                .matchedGeometryEffect(id: "art", in: space)
-                .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 28)
-        .buttonStyle(PressScaleStyle(scale: 0.985))
-        .accessibilityLabel(localized("Close cover"))
+    private var bigCover: some View {
+        Button(action: toggleCover) { coverImage }
+            .buttonStyle(PressScaleStyle(scale: 0.985))
+            .transition(.scale(scale: 0.9, anchor: .bottomLeading).combined(with: .opacity))
+            .accessibilityLabel(localized("Close cover"))
+    }
+
+    private var coverImage: some View {
+        artworkImage
+            .frame(width: layout.coverSide, height: layout.coverSide)
+            .clipShape(coverShape)
+            .overlay(coverShape.strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+            .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
     }
 
     @ViewBuilder private var artworkImage: some View {
         if let image = media.artwork {
             Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
         } else {
-            Color.white.opacity(0.1)
+            ZStack {
+                Color.white.opacity(0.1)
+                Image(systemName: "music.note").font(.system(size: 44)).foregroundStyle(.white.opacity(0.4))
+            }
         }
     }
 
-    // MARK: - Карточка
+    // MARK: - Плеер
 
-    private var card: some View {
+    private var player: some View {
         // Позиция читается по таймеру из «живых» часов плеера: у приложения без
         // окон тики самого плеера опаздывают.
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             let position = media.livePosition()
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 header(position)
                 progress(position)
                 buttons
             }
-            .padding(.horizontal, 22)
-            .padding(.top, 20)
-            .padding(.bottom, 14)
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
             .frame(maxWidth: .infinity)
-            .frame(height: cardHeight)
-            .background(GlassSurface(shape: shape, tint: config.lockGlassTint))
+            .frame(height: layout.playerHeight)
+            .background(GlassSurface(shape: pill, tint: config.lockGlassTint))
             .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
+            .shadow(color: .black.opacity(0.35), radius: 20, y: 8)
         }
     }
 
-    // MARK: - Верх: обложка, названия, значок
-
     private func header(_ position: TimeInterval) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            artwork
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(alignment: .center, spacing: 12) {
+            thumbnail
+            VStack(alignment: .leading, spacing: 0) {
                 Text(media.track?.title ?? "")
-                    .font(.system(size: 19, weight: .semibold))
-                    .tracking(-0.2)
+                    .font(.system(size: 15, weight: .semibold))
+                    .tracking(-0.1)
                     .lineLimit(1)
                 // Исполнитель, а когда у песни есть текст, поверх него строка текста:
-                // она занимает то же место, так что карточка не прыгает.
+                // она занимает то же место, так что таблетка не прыгает.
                 Text(subtitle(position))
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
             Image(systemName: "waveform")
-                .font(.system(size: 20, weight: .regular))
-                .foregroundStyle(.white.opacity(media.isPlaying ? 0.45 : 0.25))
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.white.opacity(media.isPlaying ? 0.5 : 0.25))
                 .symbolEffect(.variableColor.iterative, isActive: media.isPlaying)
         }
+    }
+
+    private var thumbnail: some View {
+        Button(action: toggleCover) {
+            artworkImage
+                .frame(width: 46, height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.94))
+        .accessibilityLabel(localized("Show full cover"))
     }
 
     private func subtitle(_ position: TimeInterval) -> String {
@@ -125,34 +138,22 @@ struct LockControlsView: View {
         return media.track?.artist ?? ""
     }
 
-    private var artwork: some View {
-        Button(action: toggleCover) {
-            artworkImage
-                .frame(width: 62, height: 62)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
-                .matchedGeometryEffect(id: "art", in: space)
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.94))
-        .accessibilityLabel(localized("Show full cover"))
-    }
-
     // MARK: - Ход: время по краям, полоса между ними
 
     private func progress(_ position: TimeInterval) -> some View {
         let fraction = media.duration > 0 ? min(max(position / media.duration, 0), 1) : 0
         return HStack(spacing: 10) {
-            Text(formatTime(position)).frame(width: 40, alignment: .leading)
+            Text(formatTime(position)).frame(width: 36, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.2))
                     Capsule().fill(.white.opacity(0.62)).frame(width: geo.size.width * fraction)
                 }
             }
-            .frame(height: 5)
-            Text("-" + formatTime(max(media.duration - position, 0))).frame(width: 44, alignment: .trailing)
+            .frame(height: 4)
+            Text("-" + formatTime(max(media.duration - position, 0))).frame(width: 40, alignment: .trailing)
         }
-        .font(.system(size: 12, weight: .medium).monospacedDigit())
+        .font(.system(size: 11, weight: .medium).monospacedDigit())
         .foregroundStyle(.white.opacity(0.5))
     }
 
@@ -162,19 +163,19 @@ struct LockControlsView: View {
         HStack(spacing: 0) {
             // Левая и правая ячейки одной ширины: воспроизведение всегда по центру.
             Color.clear.frame(maxWidth: .infinity)
-            HStack(spacing: 40) {
+            HStack(spacing: 34) {
                 Button { tapLog.notice("tap: previous"); media.previous() } label: {
-                    Image(systemName: "backward.fill").font(.system(size: 26))
+                    Image(systemName: "backward.fill").font(.system(size: 21))
                 }
                 .disabled(!media.canSkip)
                 .opacity(media.canSkip ? 1 : 0.35)
                 Button { tapLog.notice("tap: playpause"); media.togglePlayPause() } label: {
                     Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 36))
+                        .font(.system(size: 28))
                         .contentTransition(.symbolEffect(.replace.downUp, options: .speed(2)))
                 }
                 Button { tapLog.notice("tap: next"); media.next() } label: {
-                    Image(systemName: "forward.fill").font(.system(size: 26))
+                    Image(systemName: "forward.fill").font(.system(size: 21))
                 }
                 .disabled(!media.canSkip)
                 .opacity(media.canSkip ? 1 : 0.35)
@@ -185,7 +186,7 @@ struct LockControlsView: View {
                 if media.canFavorite {
                     Button { tapLog.notice("tap: heart"); media.toggleFavorite() } label: {
                         Image(systemName: media.isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 20))
+                            .font(.system(size: 17))
                             .foregroundStyle(media.isFavorite ? Color.pink : Color.white.opacity(0.55))
                     }
                 }
@@ -193,7 +194,7 @@ struct LockControlsView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(LockButtonStyle())
-        .frame(height: 46)
+        .frame(height: 36)
     }
 }
 

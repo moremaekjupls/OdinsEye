@@ -30,27 +30,43 @@ enum LockScreenPolicy {
         enabled && available && locked && hasTrack
     }
 
-    /// Верх карточки: под системными часами и погодой.
-    static let topFraction: CGFloat = 0.38
+    /// Верх раскладки: под системными часами и датой.
+    static let topFraction: CGFloat = 0.32
     /// Низ экрана принадлежит системе: поле пароля и Touch ID.
     static let reservedBottomFraction: CGFloat = 0.26
-    static let cardSize = CGSize(width: 400, height: 176)
+    /// Плеер: высота таблетки, зазор до обложки, ширина колонки, предел обложки.
+    static let playerHeight: CGFloat = 128
+    static let gap: CGFloat = 14
+    static let columnWidth: CGFloat = 360
+    static let maxCover: CGFloat = 340
+    /// Обложка меньше этого не показывается: на низком экране остаётся один плеер.
+    static let minCover: CGFloat = 110
 
-    /// Рамка карточки в координатах экрана: по центру под часами и целиком
-    /// выше нижней зоны, даже на низком или узком экране.
-    static func frame(on screen: CGRect) -> CGRect {
-        let top = screen.maxY - screen.height * topFraction
-        let floor = screen.minY + screen.height * reservedBottomFraction
-        let height = min(cardSize.height, max(top - floor, 0))
-        let width = min(cardSize.width, screen.width * 0.9)
-        return CGRect(x: screen.midX - width / 2, y: top - height, width: width, height: height)
+    /// Что где стоит: окно, сторона обложки (0, если не помещается) и высота плеера.
+    struct Layout: Equatable {
+        var frame: CGRect
+        var coverSide: CGFloat
+        var playerHeight: CGFloat
+
+        /// Окно, пока обложка скрыта: один плеер на месте верха раскладки.
+        var collapsedFrame: CGRect {
+            CGRect(x: frame.minX, y: frame.maxY - playerHeight, width: frame.width, height: playerHeight)
+        }
     }
 
-    /// Рамка окна, когда обложка раскрыта: квадрат под тем же верхом, не ниже
-    /// нижней зоны. Верх и центр те же, поэтому обложка растёт из карточки.
-    static func coverFrame(from card: CGRect, on screen: CGRect, maxSide: CGFloat = 380) -> CGRect {
+    /// Раскладка в координатах экрана: колонка по центру под часами, обложка над
+    /// плеером, всё целиком выше нижней зоны, даже на низком или узком экране.
+    /// Обложка занимает то, что остаётся от плеера, но не больше `maxCover`.
+    static func layout(on screen: CGRect) -> Layout {
+        let top = screen.maxY - screen.height * topFraction
         let floor = screen.minY + screen.height * reservedBottomFraction
-        let side = max(min(maxSide, card.maxY - floor, screen.width * 0.9), card.height)
-        return CGRect(x: card.midX - side / 2, y: card.maxY - side, width: side, height: side)
+        let available = max(top - floor, 0)
+        let width = min(columnWidth, screen.width * 0.9)
+        let player = min(playerHeight, available)
+        var cover = min(maxCover, width, available - player - gap)
+        if cover < minCover { cover = 0 }
+        let height = cover > 0 ? cover + gap + player : player
+        let frame = CGRect(x: screen.midX - width / 2, y: top - height, width: width, height: height)
+        return Layout(frame: frame, coverSide: cover, playerHeight: player)
     }
 }

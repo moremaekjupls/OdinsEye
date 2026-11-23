@@ -25,21 +25,39 @@ import Testing
         #expect(!LockScreenPolicy.shows(enabled: true, available: true, locked: true, hasTrack: false))
     }
 
-    @Test func cardStaysAboveThePasswordZone() {
+    @Test func layoutStaysAboveThePasswordZone() {
         for screen in [CGRect(x: 0, y: 0, width: 1470, height: 956), CGRect(x: 0, y: 0, width: 1280, height: 600),
                        CGRect(x: -1920, y: 0, width: 1920, height: 1080), CGRect(x: 0, y: 0, width: 1512, height: 982),
-                       CGRect(x: 0, y: 0, width: 360, height: 700)] {
-            let frame = LockScreenPolicy.frame(on: screen)
+                       CGRect(x: 0, y: 0, width: 360, height: 700), CGRect(x: 0, y: 0, width: 800, height: 300)] {
+            let layout = LockScreenPolicy.layout(on: screen)
             let floor = screen.minY + screen.height * LockScreenPolicy.reservedBottomFraction
-            #expect(frame.minY >= floor - 0.5)
-            #expect(frame.maxY <= screen.maxY - screen.height * 0.37)
-            #expect(abs(frame.midX - screen.midX) < 0.5)
-            #expect(frame.width <= screen.width * 0.9 + 0.5)
+            #expect(layout.frame.minY >= floor - 0.5)
+            #expect(layout.frame.maxY <= screen.maxY - screen.height * 0.31)
+            #expect(abs(layout.frame.midX - screen.midX) < 0.5)
+            #expect(layout.frame.width <= screen.width * 0.9 + 0.5)
+            #expect(layout.coverSide <= layout.frame.width + 0.5)
         }
     }
 
-    @Test func cardHasItsFullSizeOnARegularScreen() {
-        let frame = LockScreenPolicy.frame(on: CGRect(x: 0, y: 0, width: 1470, height: 956))
-        #expect(frame.size == LockScreenPolicy.cardSize)
+    /// На обычном экране видны и обложка, и плеер, и вместе они дают окно.
+    @Test func regularScreenShowsCoverAndPlayer() {
+        let layout = LockScreenPolicy.layout(on: CGRect(x: 0, y: 0, width: 1470, height: 956))
+        #expect(layout.coverSide >= 200)
+        #expect(layout.playerHeight == LockScreenPolicy.playerHeight)
+        #expect(abs(layout.frame.height - (layout.coverSide + LockScreenPolicy.gap + layout.playerHeight)) < 0.5)
+    }
+
+    /// Свёрнутое окно это верх раскладки: плеер в том же месте, где потом выдвигается обложка.
+    @Test func collapsedFrameIsThePlayerAtTheTop() {
+        let layout = LockScreenPolicy.layout(on: CGRect(x: 0, y: 0, width: 1470, height: 956))
+        #expect(layout.collapsedFrame.height == layout.playerHeight)
+        #expect(abs(layout.collapsedFrame.maxY - layout.frame.maxY) < 0.5)
+    }
+
+    /// На низком экране обложка уходит, плеер остаётся.
+    @Test func lowScreenKeepsOnlyThePlayer() {
+        let layout = LockScreenPolicy.layout(on: CGRect(x: 0, y: 0, width: 800, height: 300))
+        #expect(layout.coverSide == 0)
+        #expect(layout.frame.height == layout.playerHeight)
     }
 }

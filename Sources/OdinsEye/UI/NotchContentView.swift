@@ -204,11 +204,10 @@ private struct PanelBackground: View {
         let shape = NotchShape(topRadius: topRadius, bottomRadius: bottomRadius)
         let base = Color.black.mix(with: songColor ?? .black, by: songColor == nil ? 0 : config.songColorStrength)
         Group {
-            if paints, config.glass, #available(macOS 26.0, *) {
-                // Тёмный оттенок поверх стекла: текст панели белый и должен
-                // читаться на любых обоях.
-                shape.fill(Color.clear)
-                    .glassEffect(.regular.tint(base.opacity(config.glassTint)), in: shape)
+            if paints, config.glass {
+                // Общее стекло с тёмным оттенком: текст панели белый и должен
+                // читаться на любых обоях, а кромка и размытие те же, что везде.
+                GlassSurface(shape: shape, color: base, tint: config.glassTint)
             } else {
                 shape.fill(paints ? base : Color.clear)
             }

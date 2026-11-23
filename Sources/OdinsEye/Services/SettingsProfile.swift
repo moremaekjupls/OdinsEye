@@ -18,6 +18,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
     /// Секунды, которые курсор стоит на чёлке до раскрытия панели.
     var openDelay = 0.05
     var focusOverlay = true
+    var showAgent = true
     /// Выключенные вкладки по `Tab.rawValue`. nil значит «не трогать вкладки»:
     /// встроенный профиль «Обычный» не должен возвращать вкладку, которую
     /// человек убрал сам.
@@ -47,6 +48,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         hideInFullscreen = try c.decodeIfPresent(Bool.self, forKey: .hideInFullscreen) ?? d.hideInFullscreen
         openDelay = Self.clamp(try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, Self.openDelayRange)
         focusOverlay = try c.decodeIfPresent(Bool.self, forKey: .focusOverlay) ?? d.focusOverlay
+        showAgent = try c.decodeIfPresent(Bool.self, forKey: .showAgent) ?? d.showAgent
         hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs)
     }
 
@@ -76,7 +78,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
             && near(glassTint, o.glassTint) && matchSongColor == o.matchSongColor
             && near(songColorStrength, o.songColorStrength)
             && hideInFullscreen == o.hideInFullscreen && near(openDelay, o.openDelay)
-            && focusOverlay == o.focusOverlay
+            && focusOverlay == o.focusOverlay && showAgent == o.showAgent
             && hiddenTabs == o.hiddenTabs
     }
 }
@@ -104,6 +106,7 @@ struct SettingsProfile: Codable, Equatable, Identifiable, Sendable {
         presentation.haptics = false
         presentation.hideFromCapture = true
         presentation.hideInFullscreen = true
+        presentation.showAgent = false
         presentation.hiddenTabs = ["agents", "clipboard", "shelf", "snippets"]
 
         var glass = normal

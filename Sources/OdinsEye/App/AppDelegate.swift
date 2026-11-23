@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // `OdinsEye --settings`: opens the window at launch, for checking it
         // without hunting for the menu bar icon.
         if CommandLine.arguments.contains("--settings") { openSettings() }
+        if CommandLine.arguments.contains("--lock-preview") { controller?.viewModel?.lockScreen.showPreview() }
         // The icon turns into a cup while "Не спать" is on, whoever turned it
         // on, so the mode is visible without opening anything.
         controller?.keepAwake?.$isActive

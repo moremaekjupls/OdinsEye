@@ -82,6 +82,7 @@ final class NotchViewModel: ObservableObject {
     func apply(_ profile: SettingsProfile) {
         let s = profile.settings
         ConfigStore.shared.applyLook(s)
+        avatar.setEnabled(s.showAgent)
         lyrics.setEnabled(s.lyrics)
         guard let hidden = s.hiddenTabs else { return }
         let off = Set(hidden)

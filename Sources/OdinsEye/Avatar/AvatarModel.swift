@@ -12,8 +12,13 @@ final class AvatarModel: ObservableObject {
     let engine: PeekyEngine?
 
     @Published private(set) var mood: PeekyMood = .asleep
-    /// Есть ли вообще за кем следить: без сессий «ухо» пустое.
+    /// Показывать ли агента у чёлки вообще (переключатель в настройках). Выключенный,
+    /// он не рисуется, не здоровается, не звучит и не открывает панель по «ушам»;
+    /// чёлка остаётся просто чёлкой с её вкладками.
+    @Published private(set) var isEnabled = ConfigStore.shared.showAgent
+    /// Есть ли вообще за кем следить и можно ли показывать: без сессий «ухо» пустое.
     @Published private(set) var isPresent = false
+    private var hasSessions = false
     /// Основная панель раскрыта и закрывает собой «ухо».
     @Published private(set) var isCovered = false
     /// Состояния первых четырёх сессий: точки в правом «ухе».
@@ -64,6 +69,18 @@ final class AvatarModel: ObservableObject {
         sounds.play(.hello)
     }
 
+    func setEnabled(_ on: Bool) {
+        guard on != isEnabled else { return }
+        isEnabled = on
+        ConfigStore.shared.showAgent = on
+        refreshPresent()
+    }
+
+    private func refreshPresent() {
+        let next = hasSessions && isEnabled
+        if next != isPresent { isPresent = next }
+    }
+
     func setCovered(_ covered: Bool) {
         guard covered != isCovered else { return }
         isCovered = covered
@@ -87,14 +104,16 @@ final class AvatarModel: ObservableObject {
         self.sessions = sessions
         self.hasPending = hasPending
         guard let next = Self.mood(for: sessions, hasPending: hasPending) else {
-            isPresent = false
+            hasSessions = false
+            refreshPresent()
             dots = []
             dozeTask?.cancel()
             isDozing = false
             apply(.asleep)
             return
         }
-        isPresent = true
+        hasSessions = true
+        refreshPresent()
         dots = sessions.prefix(4).map(\.state)
         if next != .awake { isDozing = false }
         apply(next == .awake && isDozing ? .asleep : next)
@@ -115,7 +134,7 @@ final class AvatarModel: ObservableObject {
         guard next != mood else { return }
         mood = next
         engine?.setMood(next, now: CACurrentMediaTime())
-        if next == .done { sounds.play(.done) }
+        if next == .done, isEnabled { sounds.play(.done) }
     }
 
     private func scheduleDoze() {

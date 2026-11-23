@@ -30,20 +30,19 @@ enum LockScreenPolicy {
         enabled && available && locked && hasTrack
     }
 
-    static let cardSize = CGSize(width: 440, height: 168)
-    /// Верхняя граница карточки: под системными часами.
-    static let topFraction: CGFloat = 0.36
+    /// Верх карточки: под системными часами и погодой.
+    static let topFraction: CGFloat = 0.38
     /// Низ экрана принадлежит системе: поле пароля и Touch ID.
     static let reservedBottomFraction: CGFloat = 0.26
+    static let cardSize = CGSize(width: 400, height: 176)
 
-    /// Рамка карточки в координатах экрана: по центру, под часами, и целиком
-    /// выше нижней зоны, даже на очень низком экране.
+    /// Рамка карточки в координатах экрана: по центру под часами и целиком
+    /// выше нижней зоны, даже на низком или узком экране.
     static func frame(on screen: CGRect) -> CGRect {
         let top = screen.maxY - screen.height * topFraction
         let floor = screen.minY + screen.height * reservedBottomFraction
         let height = min(cardSize.height, max(top - floor, 0))
-        return CGRect(
-            x: screen.midX - cardSize.width / 2, y: top - height,
-            width: cardSize.width, height: height)
+        let width = min(cardSize.width, screen.width * 0.9)
+        return CGRect(x: screen.midX - width / 2, y: top - height, width: width, height: height)
     }
 }

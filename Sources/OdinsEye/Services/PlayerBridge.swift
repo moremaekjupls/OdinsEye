@@ -132,6 +132,25 @@ enum PlayerBridge {
         case playPause = 16, next = 17, previous = 18
     }
 
+    // MARK: - Favorite
+
+    /// «Избранное» умеет только Apple Music: у неё есть свойство `favorited`.
+    /// У Spotify в AppleScript такого нет (`starred` только для чтения и
+    /// устарело), а команды MediaRemote он не предлагает.
+    static func isFavorite(_ app: PlayerApp, completion: @escaping @MainActor (Bool?) -> Void) {
+        guard app == .music, app.isRunning else { return completion(nil) }
+        runScript("""
+        tell application id "\(app.bundleID)"
+            return favorited of current track
+        end tell
+        """) { descriptor in completion(descriptor.map { $0.booleanValue }) }
+    }
+
+    static func setFavorite(_ app: PlayerApp, _ on: Bool) {
+        guard app == .music else { return }
+        command("set favorited of current track to \(on ? "true" : "false")", on: app)
+    }
+
     // MARK: - Artwork
 
     static func artwork(for state: PlayerState, completion: @escaping @MainActor (NSImage?) -> Void) {

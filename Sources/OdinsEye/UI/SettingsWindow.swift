@@ -183,7 +183,8 @@ private struct SettingsRoot: View {
 private struct WindowBackdrop: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .hudWindow
+        // «Уменьшить прозрачность»: плотная подложка без размытия обоев.
+        view.material = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? .windowBackground : .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
         return view
@@ -306,6 +307,7 @@ private struct SettingsPageView: View {
     @ObservedObject private var keepAwake: KeepAwake
     @ObservedObject private var privacy: PrivacyMode
     @ObservedObject private var focusMonitor: FocusStateMonitor
+    @ObservedObject private var avatar: AvatarModel
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var saveClipboardImages = NotchViewModel.saveClipboardImagesEnabled
@@ -318,6 +320,7 @@ private struct SettingsPageView: View {
         self.keepAwake = vm.keepAwake
         self.privacy = vm.privacy
         self.focusMonitor = vm.focus
+        self.avatar = vm.avatar
     }
 
     var body: some View {
@@ -466,7 +469,7 @@ private struct SettingsPageView: View {
         }
         Card(localized("Status")) {
             Text(vm.lockScreen.isAvailable
-                 ? localized("Shows a small card under the system clock while the Mac is locked. It does not take the mouse or keyboard, buttons are not on it, and the password field stays the system's.")
+                 ? localized("Shows the cover and a small player under the system clock while the Mac is locked: previous, play or pause, next and, for Apple Music, a heart. Only the buttons take clicks, nothing takes the keyboard, and the password field stays the system's.")
                  : localized("Unavailable: this macOS does not provide what the card needs."))
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
@@ -506,6 +509,11 @@ private struct SettingsPageView: View {
             SliderRow(
                 title: localized("Open Delay"), value: number(\.openDelay), range: SettingsSnapshot.openDelayRange,
                 format: { String(format: "%.2f s", $0) })
+        }
+        Card(localized("Agent")) {
+            ToggleRow(
+                title: localized("Show Agent in Notch"),
+                isOn: Binding(get: { avatar.isEnabled }, set: { avatar.setEnabled($0) }))
         }
         Card(localized("Feedback")) {
             ToggleRow(title: localized("Haptic Touch"), isOn: flag(\.haptics))

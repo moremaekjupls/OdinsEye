@@ -27,7 +27,7 @@ final class LockScreenPlayer: ObservableObject {
     private let screen: () -> NSScreen?
     private var space: SkyLightSpace?
     private var watcher: LockScreenWatcher?
-    private var panel: NSPanel?
+    private var panels: [NSPanel] = []
     private var cancellables = Set<AnyCancellable>()
     private var started = false
     private var activity: NSObjectProtocol?
@@ -60,6 +60,20 @@ final class LockScreenPlayer: ObservableObject {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.rebuildIfShown() } }
             .store(in: &cancellables)
+        // Дисплей и система засыпают прямо на блокировке. Окна и пространство
+        // снимаются до сна (метка при этом стирается, потому что окна сняты) и
+        // ставятся заново после пробуждения, если экран всё ещё заблокирован.
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
+            workspace.publisher(for: name)
+                .sink { [weak self] _ in MainActor.assumeIsolated { self?.sleeping() } }
+                .store(in: &cancellables)
+        }
+        for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
+            workspace.publisher(for: name)
+                .sink { [weak self] _ in MainActor.assumeIsolated { self?.woke() } }
+                .store(in: &cancellables)
+        }
     }
 
     /// Выход из приложения: окно снимается, метка стирается.
@@ -90,17 +104,36 @@ final class LockScreenPlayer: ObservableObject {
     }
 
     private func refresh() {
-        let wanted = LockScreenPolicy.shows(
+        let wanted = !isAsleep && LockScreenPolicy.shows(
             enabled: isEnabled, available: isAvailable, locked: isLocked, hasTrack: media.track != nil)
         if wanted {
-            if panel == nil { show() }
+            if panels.isEmpty { show() }
         } else {
             hide()
         }
     }
 
+    /// Пока дисплей или система спят, окна не нужны.
+    private var isAsleep = false
+
+    private func sleeping() {
+        lockLog.notice("sleep: taking the windows down")
+        isAsleep = true
+        hide()
+    }
+
+    private func woke() {
+        lockLog.notice("wake: locked=\(self.isLocked, privacy: .public)")
+        isAsleep = false
+        // Система ещё поднимает экран блокировки: даём ей секунду, чтобы окно
+        // не встало раньше неё.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
+    }
+
     private func rebuildIfShown() {
-        guard panel != nil else { return }
+        guard !panels.isEmpty else { return }
         lockLog.notice("screen parameters changed, rebuilding")
         hide()
         refresh()
@@ -111,34 +144,56 @@ final class LockScreenPlayer: ObservableObject {
         // Метка первой: если дальше что-то пойдёт не так, она останется.
         guardMark.arm()
         let frame = LockScreenPolicy.frame(on: screen.frame)
-        let panel = LockCardPanel(contentRect: frame)
-        let hosting = NSHostingView(rootView: LockPlayerView(media: media, lyrics: lyrics))
-        hosting.frame = CGRect(origin: .zero, size: frame.size)
-        hosting.autoresizingMask = [.width, .height]
-        panel.contentView = hosting
-        panel.setFrame(frame, display: false)
-        panel.orderFrontRegardless()
+        // Одно окно: карточка с кнопками. Ничего больше на блокировке не рисуется.
+        let card = LockWindow(contentRect: frame, interactive: true)
+        let host = FirstMouseHostingView(rootView: LockControlsView(media: media, lyrics: lyrics))
+        host.frame = CGRect(origin: .zero, size: frame.size)
+        host.autoresizingMask = [.width, .height]
+        card.contentView = host
+        card.setFrame(frame, display: false)
+        card.orderFrontRegardless()
         space.open()
-        space.delegate(panel)
+        space.delegate(card)
         self.space = space
-        self.panel = panel
+        self.panels = [card]
         beginActivity()
-        lockLog.notice("show: frame=\(NSStringFromRect(frame), privacy: .public)")
+        lockLog.notice("show: card=\(NSStringFromRect(frame), privacy: .public)")
     }
 
+    /// `OdinsEye --lock-preview`: та же карточка обычным окном посреди экрана,
+    /// без SkyLight и без метки. Нужна, чтобы смотреть дизайн, не блокируя Mac.
+    func showPreview() {
+        guard let screen = screen() else { return }
+        let size = LockScreenPolicy.cardSize
+        let frame = CGRect(x: screen.frame.midX - size.width / 2, y: screen.frame.midY - size.height / 2,
+                           width: size.width, height: size.height)
+        let card = LockWindow(contentRect: frame, interactive: true)
+        let host = FirstMouseHostingView(rootView: LockControlsView(media: media, lyrics: lyrics))
+        host.frame = CGRect(origin: .zero, size: frame.size)
+        card.contentView = host
+        card.level = .floating
+        card.setFrame(frame, display: false)
+        card.orderFrontRegardless()
+        previewWindow = card
+    }
+
+    private var previewWindow: NSPanel?
+
     private func hide() {
-        if let panel, let space {
-            space.undelegate(panel)
+        if let space {
+            for panel in panels { space.undelegate(panel) }
             space.close()
+        }
+        for panel in panels {
             panel.orderOut(nil)
             panel.contentView = nil
         }
-        let hadPanel = panel != nil
-        panel = nil
+        let hadPanels = !panels.isEmpty
+        panels = []
         space = nil
         endActivity()
-        // Метка стирается последней, после того как окно снято.
-        if hadPanel { guardMark.disarm(); lockLog.notice("hide: window removed, mark cleared") }
+        // Метка стирается последней, после того как окна сняты.
+        if hadPanels { guardMark.disarm(); lockLog.notice("hide: windows removed, mark cleared") }
     }
 
     /// На блокировке у приложения нет окон в фокусе, и система его усыпляет:
@@ -155,9 +210,16 @@ final class LockScreenPlayer: ObservableObject {
     }
 }
 
-/// Не берёт ни клавиатуру, ни мышь: всё, что на блокировке нажимается, остаётся системным.
-private final class LockCardPanel: NSPanel {
-    init(contentRect: NSRect) {
+/// Принимает первое нажатие сразу: приложение не активно, и без этого оно
+/// ушло бы на активацию.
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+/// Не берёт клавиатуру никогда, а мышь только если это окно с кнопками: всё,
+/// что на блокировке вводится, остаётся системным.
+private final class LockWindow: NSPanel {
+    init(contentRect: NSRect, interactive: Bool) {
         super.init(contentRect: contentRect, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         appearance = NSAppearance(named: .darkAqua)
         level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
@@ -169,7 +231,7 @@ private final class LockCardPanel: NSPanel {
         hidesOnDeactivate = false
         canHide = false
         isReleasedWhenClosed = false
-        ignoresMouseEvents = true
+        ignoresMouseEvents = !interactive
     }
 
     override var canBecomeKey: Bool { false }

@@ -27,12 +27,19 @@ import Testing
 
     @Test func cardStaysAboveThePasswordZone() {
         for screen in [CGRect(x: 0, y: 0, width: 1470, height: 956), CGRect(x: 0, y: 0, width: 1280, height: 600),
-                       CGRect(x: -1920, y: 0, width: 1920, height: 1080)] {
+                       CGRect(x: -1920, y: 0, width: 1920, height: 1080), CGRect(x: 0, y: 0, width: 1512, height: 982),
+                       CGRect(x: 0, y: 0, width: 360, height: 700)] {
             let frame = LockScreenPolicy.frame(on: screen)
             let floor = screen.minY + screen.height * LockScreenPolicy.reservedBottomFraction
             #expect(frame.minY >= floor - 0.5)
-            #expect(frame.maxY <= screen.maxY - screen.height * 0.3)
+            #expect(frame.maxY <= screen.maxY - screen.height * 0.37)
             #expect(abs(frame.midX - screen.midX) < 0.5)
+            #expect(frame.width <= screen.width * 0.9 + 0.5)
         }
+    }
+
+    @Test func cardHasItsFullSizeOnARegularScreen() {
+        let frame = LockScreenPolicy.frame(on: CGRect(x: 0, y: 0, width: 1470, height: 956))
+        #expect(frame.size == LockScreenPolicy.cardSize)
     }
 }

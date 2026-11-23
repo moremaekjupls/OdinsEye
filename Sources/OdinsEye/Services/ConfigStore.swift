@@ -47,6 +47,8 @@ final class ConfigStore: ObservableObject {
         var openDelay = 0.05
         /// Плашка у чёлки, когда включается или выключается Фокус.
         var focusOverlay = true
+        /// Агент (Peeky и точки сессий) у чёлки.
+        var showAgent = true
         /// Карточка музыки на экране блокировки. По умолчанию выключена и в
         /// профили не входит: профиль не должен включать её сам.
         var lockScreenPlayer = false
@@ -85,6 +87,7 @@ final class ConfigStore: ObservableObject {
             openDelay = SettingsSnapshot.clamp(
                 try c.decodeIfPresent(Double.self, forKey: .openDelay) ?? d.openDelay, SettingsSnapshot.openDelayRange)
             focusOverlay = try c.decodeIfPresent(Bool.self, forKey: .focusOverlay) ?? d.focusOverlay
+            showAgent = try c.decodeIfPresent(Bool.self, forKey: .showAgent) ?? d.showAgent
             lockScreenPlayer = try c.decodeIfPresent(Bool.self, forKey: .lockScreenPlayer) ?? d.lockScreenPlayer
             lockScreenTripped = try c.decodeIfPresent(Bool.self, forKey: .lockScreenTripped) ?? d.lockScreenTripped
             // Битый профиль не должен ронять весь файл: читается по одному.
@@ -201,6 +204,11 @@ final class ConfigStore: ObservableObject {
         set { value.lockScreenTripped = newValue; persist() }
     }
 
+    var showAgent: Bool {
+        get { value.showAgent }
+        set { value.showAgent = newValue; persist() }
+    }
+
     var focusOverlay: Bool {
         get { value.focusOverlay }
         set { value.focusOverlay = newValue; persist() }
@@ -239,6 +247,7 @@ final class ConfigStore: ObservableObject {
         s.hideInFullscreen = value.hideInFullscreen
         s.openDelay = value.openDelay
         s.focusOverlay = value.focusOverlay
+        s.showAgent = value.showAgent
         s.hiddenTabs = value.hiddenTabs.sorted()
         return s
     }
@@ -256,6 +265,7 @@ final class ConfigStore: ObservableObject {
         value.hideInFullscreen = s.hideInFullscreen
         value.openDelay = s.openDelay
         value.focusOverlay = s.focusOverlay
+        value.showAgent = s.showAgent
         persist()
     }
 

@@ -1,4 +1,7 @@
 import AppKit
+import os
+
+private let favLog = Logger(subsystem: "com.moremaekjupls.odinseye", category: "lockscreen")
 
 /// Now Playing for whatever the system is playing — browser tabs included.
 ///
@@ -14,7 +17,16 @@ final class MediaController: ObservableObject {
         var key: String
     }
 
-    @Published private(set) var track: Track?
+    @Published private(set) var track: Track? {
+        didSet { if track?.key != oldValue?.key { refreshFavorite() } }
+    }
+    /// Какое приложение играет: от этого зависит, умеет ли оно «избранное».
+    private(set) var sourceBundleID: String? {
+        didSet { if sourceBundleID != oldValue { refreshFavorite() } }
+    }
+    @Published private(set) var isFavorite = false
+    /// Сердце есть только у Apple Music, см. `PlayerBridge.isFavorite`.
+    var canFavorite: Bool { track != nil && sourceBundleID == PlayerApp.music.bundleID }
     @Published private(set) var artwork: NSImage? {
         didSet { accent = artwork.flatMap(ArtworkColor.dominant(of:)) }
     }
@@ -112,6 +124,24 @@ final class MediaController: ObservableObject {
         dispatch(feed: .previous, script: { PlayerBridge.previous($0) }, key: .previous)
     }
 
+    func toggleFavorite() {
+        guard canFavorite else { return }
+        let target = !isFavorite
+        isFavorite = target
+        PlayerBridge.setFavorite(.music, target)
+        // Сверяемся с плеером: если он не принял, сердце вернётся.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            MainActor.assumeIsolated { self?.refreshFavorite() }
+        }
+    }
+
+    private func refreshFavorite() {
+        guard canFavorite else { isFavorite = false; return }
+        PlayerBridge.isFavorite(.music) { [weak self] value in
+            if let value { self?.isFavorite = value; favLog.notice("favorite re-check: \(value, privacy: .public)") }
+        }
+    }
+
     func seek(to seconds: TimeInterval) {
         guard duration > 0 else { return }
         let clamped = min(max(0, seconds), duration)
@@ -171,6 +201,7 @@ final class MediaController: ObservableObject {
         }
         duration = snapshot.duration
         sourceName = snapshot.source
+        sourceBundleID = snapshot.sourceBundle
         // Both directions travel together: no player has ever offered one
         // without the other, and two separately dimmed arrows would read as
         // a glitch rather than a limit.
@@ -228,6 +259,7 @@ final class MediaController: ObservableObject {
         duration = 0
         position = 0
         sourceName = nil
+        sourceBundleID = nil
         canSkip = true
         updateTicker()
     }
@@ -264,6 +296,7 @@ final class MediaController: ObservableObject {
 
             self.activeApp = state.app
             self.sourceName = state.app.displayName
+            self.sourceBundleID = state.app.bundleID
             self.track = Track(title: state.title, artist: state.artist, album: state.album, key: state.key)
             self.isPlaying = state.isPlaying
             self.duration = state.duration

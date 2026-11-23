@@ -206,6 +206,13 @@ struct MediaPane: View {
     /// widget dims the same two arrows on the same session.
     private var controls: some View {
         HStack(spacing: 20) {
+            if media.canFavorite {
+                Button { media.toggleFavorite() } label: {
+                    Image(systemName: media.isFavorite ? "heart.fill" : "heart")
+                        .foregroundStyle(media.isFavorite ? Color.pink : Color.white)
+                }
+                .buttonStyle(NotchButtonStyle(size: 30))
+            }
             Button { media.previous() } label: { Image(systemName: "backward.fill") }
                 .buttonStyle(NotchButtonStyle(size: 30))
                 .disabled(!media.canSkip)
